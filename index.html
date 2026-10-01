@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>乗降・乗車人員シミュレーター</title>
+<style>
+:root{--bg:#f3f8fc;--panel:#fff;--ink:#1e2d3d;--sub:#63778a;--line:#dce6ef;--accent:#1c9ad6;--accent2:#14b8a6;--soft:#e8f4fb;--warn:#f59e0b;--bad:#e5484d;--good:#2fb36d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif}
+header{background:linear-gradient(90deg,#1c9ad6,#14b8a6);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+header h1{margin:0;font-size:19px;letter-spacing:.03em}
+header .sub{opacity:.9;font-size:12px}
+nav{margin-left:auto;display:flex;gap:6px}
+nav button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:18px;padding:6px 16px;cursor:pointer;font-size:13px}
+nav button.on{background:#fff;color:#0f7fb3;font-weight:600}
+main{max-width:1280px;margin:18px auto;padding:0 16px 60px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(30,60,90,.05)}
+.card h2{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card h2 .n{background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-grid;place-items:center;font-size:12px;flex:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:980px){.grid2{grid-template-columns:1fr}}
+textarea,input,select{font:inherit;color:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:#fff}
+textarea{width:100%;font-family:ui-monospace,Menlo,Consolas,"Meiryo",monospace;font-size:12.5px;resize:vertical}
+button.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
+button.btn.ghost{background:var(--soft);color:#0f7fb3}
+button.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.muted{color:var(--sub);font-size:12px}
+.msg{font-size:12.5px;margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--soft)}
+.msg.err{background:#fdeceb;color:#b3282d}
+.msg.warn{background:#fff6e0;color:#8a5a00}
+.msg.ok{background:#e6f7ef;color:#16794a}
+.msg ul{margin:4px 0 0;padding-left:18px}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px 18px}
+.setgrid label{display:flex;flex-direction:column;font-size:12px;color:var(--sub);gap:3px}
+.setgrid label.wide{grid-column:1/-1}
+.setgrid input,.setgrid select{width:100%}
+.setgroup{font-weight:600;font-size:13px;color:#0f7fb3;margin:14px 0 6px;border-bottom:1px solid var(--line);padding-bottom:3px}
+.setgroup:first-child{margin-top:0}
+.runbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.runbar .big{font-size:15px;padding:11px 26px;border-radius:10px;background:linear-gradient(90deg,#1c9ad6,#14b8a6)}
+.bar{height:8px;background:var(--soft);border-radius:4px;overflow:hidden;flex:1;min-width:160px}
+.bar i{display:block;height:100%;width:0;background:var(--accent2);transition:width .15s}
+details summary{cursor:pointer;color:#0f7fb3;font-weight:600}
+pre.help{background:#f6fafd;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12px;overflow:auto;white-space:pre-wrap}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+.tabs button{background:none;border:0;padding:8px 16px;cursor:pointer;font-size:14px;color:var(--sub);border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button.on{color:#0f7fb3;border-bottom-color:var(--accent);font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:5px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:#f3f8fc;position:sticky;top:0;cursor:pointer;font-weight:600;color:#3b5064;user-select:none}
+th:first-child,td:first-child{text-align:left}
+td.l,th.l{text-align:left}
+tbody tr:hover{background:#f0f8fd}
+tr.click{cursor:pointer}
+.scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:22px;color:#0f7fb3}
+.stat span{font-size:12px;color:var(--sub)}
+.hb{display:inline-block;height:12px;border-radius:3px;vertical-align:middle;min-width:2px}
+.pill{display:inline-block;border-radius:10px;padding:0 8px;font-size:12px;color:#fff}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:980px){.two{grid-template-columns:1fr}}
+.secrow td{background:#fbfdff}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-bottom:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+h3{font-size:14px;margin:14px 0 6px}
+.hide{display:none!important}
+.srcrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:5px 8px;border:1px solid var(--line);border-radius:8px;margin:5px 0;background:#fbfdff;font-size:13px}
+.srcrow select{padding:2px 6px;font-size:12px}
+.srcrow button{padding:2px 10px;font-size:12px;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fbfdff;border-radius:16px;padding:2px 4px 2px 12px;margin:3px 6px 3px 0;font-size:13px}
+.chip button{border:0;background:var(--soft);color:#0f7fb3;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>乗降・乗車人員シミュレーター</h1>
+  <span class="sub">通常日の平均的な1日 ／ 路線データ（毎時固定ダイヤ）× 駅利用者数 → 列車別・駅別・区間別の人数を推定</span>
+  <nav><button id="navIn" class="on">① 入力</button><button id="navRes">② 結果</button></nav>
+</header>
+<main>
+<section id="pgIn">
+  <div class="grid2">
+    <div class="card">
+      <h2><span class="n">1</span>駅データ（利用者数）</h2>
+      <div class="muted">SR・私鉄など、会社ごとのCSVを<b>複数まとめて</b>追加できます。同名の駅は同じ駅（乗換駅）として扱います。</div>
+      <div class="row">
+        <input type="file" id="csvFile" accept=".csv,.tsv,.txt" multiple>
+        <button class="btn ghost" id="btnSampleAll">サンプルを読み込む</button>
+      </div>
+      <div class="row">
+        <input id="sheetUrl" style="flex:1;min-width:200px" placeholder="公開中のスプレッドシートURL（任意）">
+        <button class="btn ghost" id="btnFetch">URLから追加</button>
+      </div>
+      <div id="stSrc"></div>
+      <details style="margin-top:6px"><summary>コピーした内容を貼り付ける</summary>
+      <textarea id="csvText" rows="5" spellcheck="false" placeholder="駅名,利用者数,保有社,…"></textarea></details>
+      <div id="stMsg"></div>
+    </div>
+    <div class="card">
+      <h2><span class="n">2</span>路線データ（路線名・種別・保有社・車両定員・本数・停車駅）</h2>
+      <div class="muted">共同データベースから書き出したCSVを、SR・私鉄ぶん<b>複数まとめて</b>追加できます。停車駅は読点「、」区切り、<b>本数は毎時</b>です。</div>
+      <div class="row"><input type="file" id="rtFile" accept=".csv,.tsv,.txt" multiple></div>
+      <div id="rtSrc"></div>
+      <details style="margin-top:6px"><summary>コピーした内容を貼り付ける</summary>
+      <textarea id="rtText" rows="7" spellcheck="false" placeholder="路線名,種別,保有社,車両定員,本数,停車駅"></textarea></details>
+      <div id="rtMsg"></div>
+      <details style="margin-top:8px"><summary>列の意味と任意列</summary>
+<pre class="help">必須6列（1行目に見出しがあれば列の順番は自由。無ければこの順）
+路線名 / 種別 / 保有社 / 車両定員 / 本数 / 停車駅（読点区切り・片方向の停車順）
+
+・本数＝<b>毎時</b>の本数（片方向）。毎時固定ダイヤとして、毎時同じ分に発車させます。
+  時間帯による需要差は扱わず、同じ路線・種別の全列車の「1本あたり平均」を出力します。
+・同じ「路線名」（かつ同じ保有社）の行は同じ線路として扱い、各停の駅の並びから急行の通過駅数も推定します。
+・逆方向も同じ本数で運転（設定で切替）。
+・車両定員＝設定で「1編成あたり」または「1両あたり（×両数）」。
+
+立席 … TRUE/FALSE。FALSE（座席指定・立席なし）の系統は混雑率が100%を超えないよう計算し、
+       定員を超える需要は「乗れない人数」として別に集計します（空欄はTRUE扱い）
+
+任意列（見出しに書けば使います）
+発車分 … 起点駅の毎時の発車分。「5」なら5分起点で等間隔、「5 20 35 50」なら指定どおり
+所要分 … 始発駅〜終着駅の実測所要時間。駅間距離や走行速度の補正に使います
+最高速度 … km/h。種別ごとの速度表より優先
+両数 … 1両あたり定員モードのときの編成両数</pre>
+      </details>
+      <div id="rtPrev"></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2><span class="n">3</span>駅間距離（任意）</h2>
+      <div class="muted">あれば所要時間の精度が上がります。形式は「駅A,駅B,距離」または「駅名,x,z」（座標）。MTRの出力CSVを貼り付けてください。</div>
+      <div class="row"><input type="file" id="distFile" accept=".csv,.tsv,.txt" multiple><label class="muted">距離の単位 <select id="distUnit"><option value="m">m（ブロック）</option><option value="km">km</option></select></label></div>
+      <textarea id="distText" rows="5" spellcheck="false" placeholder="珱羽,風神,1840"></textarea>
+      <div id="distMsg"></div>
+    </div>
+    <div class="card">
+      <h2><span class="n">4</span>実測の所要時間（任意）</h2>
+      <div class="muted">「路線名,種別,駅A,駅B,所要分」。実際に乗って測った値を数本入れると、距離が不明な区間の長さ（なければ走行時間）を自動補正します。</div>
+      <textarea id="obsText" rows="5" spellcheck="false" placeholder="白木本線,急行,珱羽,新佐原,22"></textarea>
+      <div id="obsMsg"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2><span class="n">5</span>モデル設定</h2>
+    <div id="setGrid"></div>
+  </div>
+  <div class="card runbar">
+    <button class="btn big" id="btnRun">シミュレーション実行</button>
+    <button class="btn ghost" id="btnCancel" disabled>中止</button>
+    <div class="bar"><i id="prog"></i></div>
+    <span class="muted" id="progTxt"></span>
+    <span style="margin-left:auto"></span>
+    <button class="btn ghost" id="btnSave">入力を保存(JSON)</button>
+    <button class="btn ghost" id="btnLoad">入力を読み込み</button>
+    <input type="file" id="jsonFile" accept=".json" class="hide">
+  </div>
+  <div id="runMsg"></div>
+</section>
+
+<section id="pgRes" class="hide">
+  <div id="noRes" class="card muted">まだ結果がありません。「① 入力」でシミュレーションを実行してください。</div>
+  <div id="resBox" class="hide">
+    <div class="tabs" id="resTabs">
+      <button data-t="sum" class="on">サマリー</button>
+      <button data-t="st">駅別</button>
+      <button data-t="tr">系統別</button>
+      <button data-t="sec">区間別</button>
+    </div>
+    <div id="tSum"></div>
+    <div id="tSt" class="hide"></div>
+    <div id="tTr" class="hide"></div>
+    <div id="tSec" class="hide"></div>
+  </div>
+</section>
+</main>
+
+<script>
+/*CORE_START*/
+const DEF={usersMode:'boardalight',distribution:'match',beta:0.05,xferPen:8,minXfer:3,maxWait:45,maxRide:150,maxXfer:3,step:1,
+  bothDir:'1',dupMode:'sum',opHours:19,capMult:1,capMode:'train',cars:8,carCap:150,
+  defDist:1.5,curve:1.15,accel:14.4,decel:14.4,dwell:10,defSpeed:100,runFactor:1,
+  speedTable:'各停 80\n普通 80\n準急 90\n区間急行 95\n急行 100\n快速 100\n快速急行 105\n特急 110\n快速特急 115',
+  crowdGamma:2,crowdIter:8};
+
+function normText(s){return String(s).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/：/g,':').replace(/，/g,',').replace(/　/g,' ');}
+function detectDelim(t){const l=t.split(/\r?\n/,1)[0]||'';return (l.split('\t').length>l.split(',').length)?'\t':',';}
+function parseDelimited(t,d){
+  const rows=[];let row=[],f='',q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;}
+    else if(c==='"')q=true;
+    else if(c===d){row.push(f);f='';}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);f='';rows.push(row);row=[];}
+    else f+=c;}
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  return rows;
+}
+function fmtTime(m){m=Math.round(m);const h=Math.floor(m/60),mm=((m%60)+60)%60;return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');}
+function parseHM(s,def){const m=normText(String(s||'')).trim().match(/^(\d{1,2}):(\d{2})$/);return m?+m[1]*60+ +m[2]:def;}
+function parseNum(s){const v=parseFloat(normText(String(s==null?'':s)).replace(/[,\s人本分両kmKM]/g,''));return isNaN(v)?NaN:v;}
+const isNumStr=s=>/^[-+]?\d[\d,]*(\.\d+)?$/.test(normText(String(s||'')).trim())||/^[-+]?\.\d+$/.test(normText(String(s||'')).trim());
+
+/* ---------- 路線データの読み込み（構文のみ） ---------- */
+function parseStanding(v){
+  const x=normText(String(v==null?'':v)).trim().toLowerCase();
+  if(x==='')return true;
+  if(/^(false|f|no|n|0|×|✕|✗|x|いいえ|否|なし|無|不可|不|座席指定|指定)$/.test(x))return false;
+  return true;
+}
+function parseRoutes(text){
+  const P={rows:[],errors:[],warnings:[]};
+  const t=(text||'').replace(/^﻿/,'');
+  if(!t.trim())return P;
+  let rows=parseDelimited(t,detectDelim(t)).filter(r=>r.some(c=>(c||'').trim()!==''));
+  const ALIAS={'定員':'車両定員','編成定員':'車両定員','運行本数':'本数','便数':'本数','停車駅一覧':'停車駅','停車':'停車駅','発車':'発車分','毎時発車分':'発車分','発車時刻':'発車分','線名':'路線名','路線':'路線名','会社':'保有社','事業者':'保有社','立ち席':'立席','立席可':'立席'};
+  const hdr=rows[0].map(c=>{c=(c||'').trim();return ALIAS[c]||c;});
+  const cm={};let off=0;
+  if(hdr.includes('路線名')||hdr.includes('停車駅')){hdr.forEach((h,i)=>{if(h&&cm[h]===undefined)cm[h]=i;});off=1;}
+  else['路線名','種別','保有社','車両定員','本数','停車駅'].forEach((h,i)=>cm[h]=i);
+  for(const k of['路線名','種別','本数','停車駅'])if(cm[k]===undefined){P.errors.push('見出しに「'+k+'」がありません');return P;}
+  rows.slice(off).forEach((row,ri)=>{
+    const ln=ri+1+off;const g=k=>cm[k]!==undefined?String(row[cm[k]]==null?'':row[cm[k]]).trim():'';
+    const line=g('路線名'),kind=g('種別');
+    if(!line&&!kind&&!g('停車駅'))return;
+    const stops=g('停車駅').split(/[、，,→＞>]/).map(s=>s.trim()).filter(Boolean);
+    if(!line){P.errors.push('行'+ln+': 路線名が空です');return;}
+    if(stops.length<2){P.errors.push('行'+ln+'（'+line+' '+kind+'）: 停車駅が2駅以上必要です');return;}
+    const dup=stops.filter((s,i)=>stops.indexOf(s)!==i);
+    if(dup.length)P.warnings.push('行'+ln+'（'+line+' '+kind+'）: 同じ駅が複数回出てきます（'+[...new Set(dup)].join('、')+'）。折り返し・環状は未対応です');
+    const freq=parseNum(g('本数'));
+    if(!(freq>0))P.warnings.push('行'+ln+'（'+line+' '+kind+'）: 本数が0または不正のため運行しません');
+    const cap=parseNum(g('車両定員'));
+    const mins=normText(g('発車分')).split(/[\s,、/]+/).filter(Boolean).map(Number).filter(x=>isFinite(x)&&x>=0&&x<60).map(x=>Math.floor(x));
+    if(g('発車分')&&!mins.length)P.warnings.push('行'+ln+'（'+line+' '+kind+'）: 発車分を解釈できないため自動で決めます');
+    P.rows.push({ln,line,kind:kind||'普通',co:g('保有社'),cap:isNaN(cap)?NaN:cap,freq:isNaN(freq)?0:freq,stops,mins,
+      standing:parseStanding(g('立席')),obsMin:parseNum(g('所要分')),vmaxCol:parseNum(g('最高速度')),carsCol:parseNum(g('両数'))});
+  });
+  return P;
+}
+
+function parseRoutesMulti(srcs){
+  const P={rows:[],errors:[],warnings:[]};
+  for(const s of srcs){
+    const p=parseRoutes(s.text),tag=srcs.length>1?'['+s.name+'] ':'';
+    p.errors.forEach(e=>P.errors.push(tag+e));p.warnings.forEach(w=>P.warnings.push(tag+w));
+    p.rows.forEach(r=>{r.src=s.name;P.rows.push(r);});
+  }
+  return P;
+}
+function detectCols(h){
+  const f=re=>h.findIndex(x=>re.test(x||''));
+  let cn=f(/駅名|^name$/i);if(cn<0)cn=0;
+  let cu=f(/利用者|乗降|乗車|users/i);if(cu<0)cu=h.length>1?(cn===0?1:0):0;
+  return {cn,cu};
+}
+function buildStationMap(sources,dupMode){
+  const map=new Map(),per=[],cross=new Map(),inner=[];
+  sources.forEach(s=>{
+    const seen=new Set();let n=0,blank=0,sum=0;
+    for(let r=1;r<s.rows.length;r++){
+      const row=s.rows[r];const nm=String(row[s.cn]||'').trim();if(!nm)continue;
+      const raw=String(row[s.cu]||'').replace(/[,\s]/g,'');const u=raw===''?NaN:parseFloat(raw);
+      if(seen.has(nm)){inner.push(nm);continue;}seen.add(nm);
+      n++;if(isNaN(u))blank++;const v=isNaN(u)?0:u;sum+=v;
+      if(map.has(nm)){
+        if(!cross.has(nm))cross.set(nm,[map.get(nm).src]);cross.get(nm).push(s.name);
+        if(dupMode==='sum')map.get(nm).users+=v;
+      }else map.set(nm,{users:v,blank:isNaN(u),src:s.name});
+    }
+    per.push({n,blank,sum});
+  });
+  return {map,per,cross,inner};
+}
+function parseDist(text,unit){
+  const out={pair:new Map(),coords:new Map(),warn:[],n:0};
+  if(!text||!text.trim())return out;
+  const t=text.replace(/^﻿/,'');
+  const rows=parseDelimited(t,detectDelim(t)).filter(r=>r.some(c=>(c||'').trim()));
+  const k=unit==='km'?1:0.001,key=(a,b)=>a<b?a+'|'+b:b+'|'+a;
+  let bad=0;const vals=[];
+  rows.forEach((r,ri)=>{
+    const c=r.map(x=>(x||'').trim());
+    let a,b,v;
+    if(ri===0&&/距離|駅A|駅B|駅名|座標/.test(c.join(',')))return;
+    if(c.length>=4&&c[1]&&c[2]&&!isNumStr(c[2])&&!isNumStr(c[1])&&isNumStr(c[3])){a=c[1];b=c[2];v=parseNum(c[3]);}
+    else if(c.length>=3&&c[0]&&c[1]&&!isNumStr(c[1])&&isNumStr(c[2])){a=c[0];b=c[1];v=parseNum(c[2]);}
+    else if(c.length>=3&&c[0]&&isNumStr(c[1])&&isNumStr(c[2])){
+      const x=parseNum(c[1]),z=(c.length>=4&&isNumStr(c[3]))?parseNum(c[3]):parseNum(c[2]);
+      out.coords.set(c[0],[x*k,z*k]);out.n++;return;}
+    else{if(ri>0)bad++;return;}
+    if(!(v>0)){bad++;return;}
+    out.pair.set(key(a,b),v*k);vals.push(v*k);out.n++;
+  });
+  if(bad)out.warn.push(bad+'行を読み飛ばしました（形式が合わない／距離が0以下）');
+  if(vals.length){const s=vals.slice().sort((x,y)=>x-y),m=s[s.length>>1];
+    if(m>30)out.warn.push('駅間距離の中央値が '+m.toFixed(1)+'km と大きいです。単位（m/km）を確認してください');
+    if(m<0.05)out.warn.push('駅間距離の中央値が '+(m*1000).toFixed(0)+'m と小さいです。単位（m/km）を確認してください');}
+  return out;
+}
+function parseObs(text){
+  const out={list:[],errors:[]};
+  if(!text||!text.trim())return out;
+  const t=text.replace(/^﻿/,'');
+  const rows=parseDelimited(t,detectDelim(t)).filter(r=>r.some(c=>(c||'').trim()));
+  rows.forEach((r,i)=>{
+    const c=r.map(x=>(x||'').trim());
+    if(c.length<5||!isNumStr(c[4])){if(i>0)out.errors.push('行'+(i+1)+': 「路線名,種別,駅A,駅B,所要分」の形式で書いてください');return;}
+    const m=parseNum(c[4]);if(!(m>0)){out.errors.push('行'+(i+1)+': 所要分が不正です');return;}
+    out.list.push({line:c[0],kind:c[1],a:c[2],b:c[3],min:m});
+  });
+  return out;
+}
+
+/* ---------- 走行時間モデル ---------- */
+function speedLookup(cfg){
+  const tb=[];
+  String(cfg.speedTable||'').split(/\r?\n/).forEach(l=>{const m=normText(l).trim().match(/^(.+?)\s*[=:\s]\s*(\d+(?:\.\d+)?)/);if(m)tb.push([m[1].trim(),+m[2]]);});
+  return kind=>{const e=tb.find(x=>x[0]===kind);if(e)return e[1];let b=null;for(const x of tb)if(kind.includes(x[0])&&(!b||x[0].length>b[0].length))b=x;return b?b[1]:cfg.defSpeed;};
+}
+function runMin(Dkm,vmax,acc,dec,tf){
+  if(!(Dkm>0))return 0;
+  const d=Dkm*1000,v=vmax/3.6,a=acc/3.6,b=dec/3.6,sa=v*v/(2*a),sd=v*v/(2*b);let t;
+  if(d>=sa+sd)t=v/a+v/b+(d-sa-sd)/v;else{const vp=Math.sqrt(2*d/(1/a+1/b));t=vp/a+vp/b;}
+  return t*tf/60;
+}
+function mergeOrder(seqs){
+  const sorted=seqs.slice().sort((a,b)=>b.length-a.length);
+  const base=sorted[0].slice();
+  for(let si=1;si<sorted.length;si++){
+    const sq=sorted[si].slice();
+    const pos=new Map(base.map((n,i)=>[n,i]));
+    const sh=sq.filter(n=>pos.has(n));
+    if(sh.length>=2&&pos.get(sh[0])>pos.get(sh[sh.length-1]))sq.reverse();
+    for(let i=0;i<sq.length;i++){
+      if(base.includes(sq[i]))continue;
+      let j=i-1;while(j>=0&&!base.includes(sq[j]))j--;
+      if(j>=0){base.splice(base.indexOf(sq[j])+1,0,sq[i]);continue;}
+      let k=i+1;while(k<sq.length&&!base.includes(sq[k]))k++;
+      if(k<sq.length)base.splice(base.indexOf(sq[k]),0,sq[i]);
+    }
+  }
+  return base;
+}
+
+/* ---------- ダイヤ生成（本数→運行時刻、距離→所要時間） ---------- */
+function buildTimetable(P,cfg,DT,OBS){
+  const M={services:[],errors:[...P.errors],warnings:[...P.warnings],calib:null,info:{}};
+  const rows=P.rows;if(!rows.length)return M;
+  const vf=speedLookup(cfg),dwellMin=cfg.dwell/60;
+  const key=(a,b)=>a<b?a+'|'+b:b+'|'+a;
+  const coSet=new Map();rows.forEach(r=>{if(!coSet.has(r.line))coSet.set(r.line,new Set());coSet.get(r.line).add(r.co||'');});
+  rows.forEach(r=>{r.gk=(r.co||'')+'\u0001'+r.line;r.disp=coSet.get(r.line).size>1&&r.co?r.line+'（'+r.co+'）':r.line;});
+  const seqs=new Map();rows.forEach(r=>{if(!seqs.has(r.gk))seqs.set(r.gk,[]);seqs.get(r.gk).push(r.stops);});
+  const G=new Map();
+  seqs.forEach((sq,line)=>{const order=mergeOrder(sq);G.set(line,{order,pos:new Map(order.map((n,i)=>[n,i]))});});
+  const knownEdge=(a,b)=>{
+    const k=key(a,b);if(DT.pair.has(k))return DT.pair.get(k);
+    const ca=DT.coords.get(a),cb=DT.coords.get(b);
+    if(ca&&cb)return Math.hypot(ca[0]-cb[0],ca[1]-cb[1])*cfg.curve;
+    return null;
+  };
+  const kn=[];G.forEach(g=>{for(let i=0;i<g.order.length-1;i++){const v=knownEdge(g.order[i],g.order[i+1]);if(v>0)kn.push(v);}});
+  kn.sort((a,b)=>a-b);
+  const defBase=kn.length?kn[kn.length>>1]:cfg.defDist;
+  rows.forEach(r=>{r.vmax=r.vmaxCol>0?r.vmaxCol:vf(r.kind);});
+
+  function evaluate(ds,tf){
+    const atom=(a,b)=>{const v=knownEdge(a,b);return v>0?{km:v,known:true}:{km:defBase*ds,known:false};};
+    const adj=new Map();
+    G.forEach(g=>{for(let i=0;i<g.order.length-1;i++){const a=g.order[i],b=g.order[i+1],w=atom(a,b).km;
+      if(!adj.has(a))adj.set(a,[]);if(!adj.has(b))adj.set(b,[]);adj.get(a).push([b,w]);adj.get(b).push([a,w]);}});
+    const memo=new Map();
+    const dij=src=>{
+      if(memo.has(src))return memo.get(src);
+      const dist=new Map([[src,0]]),done=new Set();
+      for(;;){let u=null,du=Infinity;dist.forEach((d,k)=>{if(!done.has(k)&&d<du){du=d;u=k;}});if(u===null)break;done.add(u);
+        for(const [v,w] of adj.get(u)||[]){const nd=du+w;if(!dist.has(v)||nd<dist.get(v))dist.set(v,nd);}}
+      memo.set(src,dist);return dist;
+    };
+    let totalKm=0;
+    for(const r of rows){
+      const g=G.get(r.gk),hop=[];let unk=0;
+      for(let k=0;k<r.stops.length-1;k++){
+        const a=r.stops[k],b=r.stops[k+1];let km;const kk=key(a,b);
+        if(DT.pair.has(kk))km=DT.pair.get(kk);
+        else if(g.pos.has(a)&&g.pos.has(b)){
+          let i=g.pos.get(a),j=g.pos.get(b);if(i>j){const x=i;i=j;j=x;}
+          km=0;let u=false;for(let q=i;q<j;q++){const e=atom(g.order[q],g.order[q+1]);km+=e.km;if(!e.known)u=true;}
+          if(u)unk++;
+        }else{
+          const d=dij(a);
+          if(d.has(b)){km=d.get(b);unk++;}
+          else{const ca=DT.coords.get(a),cb=DT.coords.get(b);
+            if(ca&&cb)km=Math.hypot(ca[0]-cb[0],ca[1]-cb[1])*cfg.curve;else{km=defBase*ds;unk++;}}
+        }
+        hop.push(km);totalKm+=km;
+      }
+      r.hopKm=hop;r.unk=unk;
+      const o=[0];for(let k=0;k<hop.length;k++)o.push(o[k]+(k>0?dwellMin:0)+runMin(hop[k],r.vmax,cfg.accel,cfg.decel,tf*cfg.runFactor));
+      r.offs=o;
+    }
+    return {totalKm};
+  }
+
+  // ---- 実測値による補正
+  const obsList=[];
+  rows.forEach(r=>{if(r.obsMin>0)obsList.push({r,a:r.stops[0],b:r.stops[r.stops.length-1],min:r.obsMin,label:r.line+' '+r.kind+' '+r.stops[0]+'→'+r.stops[r.stops.length-1]});});
+  for(const o of (OBS&&OBS.list)||[]){
+    const r=rows.find(x=>x.line===o.line&&x.kind===o.kind&&x.stops.includes(o.a)&&x.stops.includes(o.b));
+    if(r)obsList.push({r,a:o.a,b:o.b,min:o.min,label:o.line+' '+o.kind+' '+o.a+'→'+o.b});
+    else M.warnings.push('実測値「'+o.line+' '+o.kind+' '+o.a+'→'+o.b+'」に該当する路線データがありません');
+  }
+  const pred=o=>Math.abs(o.r.offs[o.r.stops.indexOf(o.b)]-o.r.offs[o.r.stops.indexOf(o.a)]);
+  const sse=()=>{let s=0;for(const o of obsList)s+=((pred(o)-o.min)/o.min)**2;return s;};
+  let ds=1,tf=1;
+  const e0=evaluate(1,1),e1=evaluate(1.2,1);
+  const dsSensitive=e1.totalKm-e0.totalKm>1e-9;
+  if(obsList.length){
+    const param=dsSensitive?'ds':'tf';
+    const run=v=>{if(param==='ds')evaluate(v,1);else evaluate(1,v);return sse();};
+    const lo=param==='ds'?0.1:0.4,hi=param==='ds'?10:2.5;
+    let best=1,bv=Infinity;
+    for(let i=0;i<=80;i++){const v=lo*Math.pow(hi/lo,i/80),s=run(v);if(s<bv){bv=s;best=v;}}
+    let a=best/Math.pow(hi/lo,1/80),b=best*Math.pow(hi/lo,1/80);
+    for(let i=0;i<30;i++){const m1=a+(b-a)/3,m2=b-(b-a)/3;if(run(m1)<run(m2))b=m2;else a=m1;}
+    best=(a+b)/2;
+    if(param==='ds')ds=best;else tf=best;
+    evaluate(ds,tf);
+    const rep=obsList.map(o=>({label:o.label,obs:o.min,pred:pred(o)}));
+    M.calib={param,value:best,rmse:Math.sqrt(rep.reduce((s,x)=>s+((x.pred-x.obs)/x.obs)**2,0)/rep.length)*100,rep};
+  }else evaluate(1,1);
+  M.info={defBase:defBase*ds,knownEdges:kn.length,unkHops:rows.reduce((a,r)=>a+r.unk,0),hops:rows.reduce((a,r)=>a+r.hopKm.length,0)};
+
+  // ---- 運行時刻・サービス生成（毎時固定ダイヤ：毎時同じ分に発車）
+  const names=new Set();
+  const capMult=cfg.capMult>0?cfg.capMult:1;
+  rows.forEach((r,ri)=>{
+    if(!(r.freq>0))return;
+    const g=G.get(r.gk);
+    let n=Math.min(60,Math.max(1,Math.round(r.freq)));
+    if(r.mins.length>1&&r.mins.length!==n){M.warnings.push('「'+r.disp+' '+r.kind+'」: 発車分が'+r.mins.length+'個あるため、本数'+r.freq+'ではなく発車分を優先します');}
+    const h=60/n;
+    const cars=r.carsCol>0?r.carsCol:cfg.cars;
+    const cap=(cfg.capMode==='car'?((r.cap>0?r.cap:cfg.carCap)*cars):(r.cap>0?r.cap:cars*cfg.carCap))*capMult;
+    const dirs=[false];if(cfg.bothDir==='1'||cfg.bothDir===1||cfg.bothDir===true)dirs.push(true);
+    for(const rev of dirs){
+      const nm=rev?r.stops.slice().reverse():r.stops.slice();
+      const hop=rev?r.hopKm.slice().reverse():r.hopKm;
+      const o=[0];for(let k=0;k<hop.length;k++)o.push(o[k]+(k>0?dwellMin:0)+runMin(hop[k],r.vmax,cfg.accel,cfg.decel,tf*cfg.runFactor));
+      let mins;
+      if(r.mins.length>1)mins=r.mins.map(m=>(m+(rev?Math.round(h/2):0))%60);
+      else{
+        const base=r.mins.length===1?r.mins[0]:Math.round((((ri*0.6180339887)%1)*h));
+        mins=[];for(let k=0;k<n;k++)mins.push((base+Math.round(k*h)+(rev?Math.round(h/2):0))%60);
+      }
+      mins=[...new Set(mins)].sort((x,y)=>x-y);
+      let name=r.disp+' '+r.kind+(rev?'(逆)':'');if(names.has(name)){let c=2;while(names.has(name+'#'+c))c++;name+='#'+c;}names.add(name);
+      let idxs=nm.map(s=>g.pos.get(s)),ok=idxs.every(x=>x!==undefined);
+      if(ok){let up=true,dn=true;for(let k=1;k<idxs.length;k++){if(idxs[k]<=idxs[k-1])up=false;if(idxs[k]>=idxs[k-1])dn=false;}ok=up||dn;}
+      const sv={id:M.services.length,name,kind:r.kind,line:r.disp,co:r.co,rev,cap,mins,
+        stops:nm.map((s,k)=>({n:s,off:o[k]})),reserved:!r.standing,freq:r.freq,headway:60/mins.length,km:hop.reduce((a,b)=>a+b,0),minutes:o[o.length-1],vmax:r.vmax,unk:r.unk,
+        lineSt:ok?g.order:nm,idxs:ok?idxs:nm.map((x,i)=>i),lineName:ok?r.disp:'('+name+')'};
+      if(!ok)M.warnings.push('「'+name+'」は路線「'+r.disp+'」の駅順と合わないため、停車駅どうしを区間として集計します');
+      M.services.push(sv);
+    }
+  });
+  return M;
+}
+
+/* ================= シミュレーション（毎時固定ダイヤの定常状態を「平均的な1時間」で計算） ================= */
+async function simulate(M,users,cfg,progress,cancelled){
+  const yieldUI=()=>new Promise(r=>setTimeout(r,0));
+  const names=[],id=new Map();
+  for(const sv of M.services)for(const st of sv.stops)if(!id.has(st.n)){id.set(st.n,names.length);names.push(st.n);}
+  const n=names.length;
+  const H=Math.max(1,+cfg.opHours||19);
+  const maxMin=M.services.reduce((m,s)=>Math.max(m,s.minutes),0);
+  // 1時間ぶんの来駅を計算するため、前後の時間帯の列車も用意し、同じ「毎時の発車分」の列車に集約する
+  const hLo=-Math.ceil(maxMin/60)-1,hHi=Math.ceil((60+cfg.maxWait+cfg.maxRide)/60)+1;
+  const F=k=>new Float64Array(k);
+  const slots=[],routes=[],tripSlotArr=[];let nTrips=0;
+  const served=new Uint8Array(n);
+  for(const sv of M.services){
+    sv.capacity=sv.cap;
+    const ns=sv.stops.length,sids=Int32Array.from(sv.stops.map(s=>id.get(s.n)));
+    const offs=Float64Array.from(sv.stops.map(s=>s.off));
+    for(let k=0;k<ns-1;k++)served[sids[k]]=1;
+    const slotBase=slots.length;
+    sv.mins.forEach(m=>slots.push({sv,dep0:m,st:sids,offs,cap:sv.cap,on:F(ns),off:F(ns),seg:F(ns-1),useg:F(ns-1),fon:F(ns),foff:F(ns),fseg:F(ns-1),fuseg:F(ns-1),fac:null}));
+    const deps=[];
+    for(let hh=hLo;hh<=hHi;hh++)sv.mins.forEach((m,mi)=>{deps.push(hh*60+m);tripSlotArr.push(slotBase+mi);});
+    routes.push({sv,stops:sids,offs,deps:Float64Array.from(deps),nt:deps.length,base:nTrips,cp:F(ns),rate:F(ns-1),slotBase,ns});
+    nTrips+=deps.length;
+  }
+  if(!slots.length)throw new Error('運行する列車がありません（本数を確認してください）');
+  const tripSlot=Int32Array.from(tripSlotArr);
+  const srTmp=Array.from({length:n},()=>[]);
+  routes.forEach((rt,ri)=>rt.stops.forEach((s,p)=>{if(p<rt.stops.length-1)srTmp[s].push(ri,p);}));
+  const stopRoutes=srTmp.map(a=>Int32Array.from(a));
+
+  const K=Math.max(1,Math.round(cfg.maxXfer)+1);
+  const AR=[],PR=[],PT=[],PB=[],PA=[];
+  for(let r=0;r<=K;r++){AR.push(F(n));PR.push(F(n));PT.push(new Int32Array(n));PB.push(new Int32Array(n));PA.push(new Int32Array(n));}
+  const BIG=1<<30,qPos=new Int32Array(routes.length).fill(BIG),touched=new Int32Array(routes.length);
+  let marked=new Int32Array(n),nmarked=new Int32Array(n);
+  const flag=new Uint8Array(n);
+  // 体感時間(PR)を最小化する。実時刻(AR)は乗継可否の判定に使う
+  function scan(o,t){
+    AR[0].fill(Infinity);PR[0].fill(Infinity);AR[0][o]=t;PR[0][o]=t;
+    const lim=t+cfg.maxWait+cfg.maxRide,wl=t+cfg.maxWait;
+    let mN=1;marked[0]=o;let used=0;
+    for(let r=1;r<=K;r++){
+      const pA=AR[r-1],pP=PR[r-1],cA=AR[r],cP=PR[r],pt=PT[r],pb=PB[r],pa=PA[r];
+      cA.set(pA);cP.set(pP);pt.fill(-1);
+      let tN=0;
+      for(let i=0;i<mN;i++){
+        const sr=stopRoutes[marked[i]];
+        for(let e=0;e<sr.length;e+=2){const ri=sr[e],p=sr[e+1];
+          if(qPos[ri]===BIG){touched[tN++]=ri;qPos[ri]=p;}else if(p<qPos[ri])qPos[ri]=p;}
+      }
+      let nN=0;
+      for(let q=0;q<tN;q++){
+        const ri=touched[q],rt=routes[ri],stops=rt.stops,offs=rt.offs,deps=rt.deps,nt=rt.nt,ns=rt.ns,cp=rt.cp;
+        let p=qPos[ri];qPos[ri]=BIG;
+        let cj=-1,bpos=0,base=0;
+        for(;p<ns;p++){
+          const s=stops[p];
+          if(cj>=0){
+            const ta=deps[cj]+offs[p];
+            if(ta>lim)break;
+            const Pp=base+offs[p]+cp[p];
+            if(Pp<cP[s]-1e-9){cP[s]=Pp;cA[s]=ta;pt[s]=rt.base+cj;pb[s]=bpos;pa[s]=p;if(!flag[s]){flag[s]=1;nmarked[nN++]=s;}}
+          }
+          if(p===ns-1)break;
+          const a=pA[s];
+          if(a!==Infinity&&!(r>1&&s===o)){
+            const need=a+(s===o?0:cfg.minXfer)-offs[p];
+            let lo=0,hi=nt;while(lo<hi){const m=(lo+hi)>>1;if(deps[m]<need)lo=m+1;else hi=m;}
+            if(lo<nt&&(r>1||deps[lo]+offs[p]<=wl)){
+              const Pn=pP[s]+(deps[lo]+offs[p]-a)+(r>1?cfg.xferPen:0);
+              const Pc=cj>=0?base+offs[p]+cp[p]:Infinity;
+              if(Pn<Pc-1e-9){cj=lo;bpos=p;base=Pn-offs[p]-cp[p];}
+            }
+          }
+        }
+      }
+      for(let i=0;i<nN;i++)flag[nmarked[i]]=0;
+      used=r;
+      if(nN===0)break;
+      const tmp=marked;marked=nmarked;nmarked=tmp;mN=nN;
+    }
+    return used;
+  }
+  let bCost=0,bR=0;
+  function best(t,d,used){
+    bCost=Infinity;bR=0;
+    for(let r=1;r<=used;r++){if(PR[r][d]<PR[r-1][d]-1e-9){const c=PR[r][d]-t;if(c<bCost){bCost=c;bR=r;}}}
+  }
+  const legs=[];
+  function pathLegs(d){
+    legs.length=0;let r=bR,cur=d;
+    while(r>0){
+      const tid=PT[r][cur],bp=PB[r][cur],ap=PA[r][cur];legs.push(tid,bp,ap);
+      const u=slots[tripSlot[tid]].st[bp],at=PR[r-1][u];let rr=r-1;
+      while(rr>0&&PR[rr-1][u]===at)rr--;
+      cur=u;r=rr;
+    }
+    return legs.length/3;
+  }
+
+  // 1時間あたりの発生量 = 1日の利用者数 ÷ 1日の運行時間
+  const B=F(n);
+  for(let i=0;i<n;i++){const u=users.get(names[i]);const v=(u&&isFinite(u.users))?u.users:0;B[i]=(cfg.usersMode==='board'?v:v/2)/H;}
+  const step=Math.max(0.25,cfg.step);
+  const origins=[];for(let o=0;o<n;o++)if(B[o]>0&&served[o])origins.push(o);
+  const hasRes=M.services.some(s=>s.reserved);
+  const gamma=cfg.crowdGamma>0?cfg.crowdGamma:0;
+  const ITER=(gamma>0||hasRes)?Math.max(1,Math.round(cfg.crowdIter)):1;
+  const totalScans=Math.max(1,origins.length*(hasRes?3:2)*ITER);let doneO=0;
+  const penaltyMult=(rate,reserved)=>{
+    const x=Math.min(rate,3);
+    if(reserved){const e=Math.max(0,x-0.7);return 1+8*e*e;}
+    if(gamma>0){const e=Math.max(0,x-0.8);return 1+gamma*e*e;}
+    return 1;
+  };
+
+  const sumG=F(n*n),cnt=new Int32Array(n*n),nsamp=new Int32Array(n),f=F(n*n),T=F(n*n),Ts=F(n*n);
+  const ob=F(n),da=F(n),xb=F(n),xa=F(n),denied=F(n);
+  const fin={ob:F(n),da:F(n),xb:F(n),xa:F(n),denied:F(n),T:F(n*n),totW:0,sumX:0,sumTime:0};
+  const deltas=[];
+
+  async function sweep(mode,tag){
+    let totW=0,sumX=0,sumTime=0;
+    for(const o of origins){
+      if(cancelled())return null;
+      for(let t=step/2;t<60;t+=step){
+        const used=scan(o,t);
+        for(let d=0;d<n;d++){
+          if(d===o)continue;const k=o*n+d;const Tij=T[k];if(!(Tij>0))continue;
+          best(t,d,used);if(bCost===Infinity)continue;
+          const w=Tij/cnt[k];
+          const nl=pathLegs(d);
+          if(mode==='u'){
+            for(let li=0;li<nl;li++){const S=slots[tripSlot[legs[li*3]]],bp=legs[li*3+1],ap=legs[li*3+2];for(let p=bp;p<ap;p++)S.useg[p]+=w;}
+            continue;
+          }
+          let fct=1;
+          if(hasRes)for(let li=0;li<nl;li++){const S=slots[tripSlot[legs[li*3]]];if(S.fac){const bp=legs[li*3+1],ap=legs[li*3+2];for(let p=bp;p<ap;p++)if(S.fac[p]<fct)fct=S.fac[p];}}
+          const w2=w*fct;
+          for(let li=0;li<nl;li++){
+            const S=slots[tripSlot[legs[li*3]]],bp=legs[li*3+1],ap=legs[li*3+2];
+            S.on[bp]+=w2;S.off[ap]+=w2;for(let p=bp;p<ap;p++)S.seg[p]+=w2;
+            if(li===nl-1)ob[o]+=w2;else xb[S.st[bp]]+=w2;
+            if(li===0)da[d]+=w2;else xa[S.st[ap]]+=w2;
+          }
+          Ts[k]+=w2;denied[o]+=w-w2;totW+=w2;sumX+=w2*(nl-1);sumTime+=w2*(AR[bR][d]-t);
+        }
+      }
+      doneO++;progress(doneO/totalScans,tag);await yieldUI();
+    }
+    return {totW,sumX,sumTime};
+  }
+
+  for(let it=1;it<=ITER;it++){
+    const tag=(ITER>1?'反復'+it+'/'+ITER+'：':'');
+    sumG.fill(0);cnt.fill(0);nsamp.fill(0);f.fill(0);T.fill(0);
+    // ---- パス1: 各ODの平均体感所要と到達可能率
+    for(const o of origins){
+      if(cancelled())return null;
+      for(let t=step/2;t<60;t+=step){
+        nsamp[o]++;const used=scan(o,t);
+        for(let d=0;d<n;d++){if(d===o)continue;best(t,d,used);if(bCost<Infinity){sumG[o*n+d]+=bCost;cnt[o*n+d]++;}}
+      }
+      doneO++;progress(doneO/totalScans,tag+'経路の探索');await yieldUI();
+    }
+    // ---- 需要配分
+    for(const o of origins)for(let d=0;d<n;d++){
+      const k=o*n+d;if(d===o||cnt[k]===0)continue;
+      f[k]=Math.exp(-cfg.beta*(sumG[k]/cnt[k]))*(cnt[k]/nsamp[o]);
+    }
+    if(cfg.distribution==='match'){
+      const a=F(n).fill(1),b=F(n).fill(1);
+      for(let i2=0;i2<300;i2++){
+        for(let i=0;i<n;i++){let s=0;if(B[i]>0)for(let j=0;j<n;j++)s+=b[j]*f[i*n+j];a[i]=s>0?B[i]/s:0;}
+        let me=0;
+        for(let j=0;j<n;j++){let s=0;for(let i=0;i<n;i++)s+=a[i]*f[i*n+j];const nb=s>0&&B[j]>0?B[j]/s:0;me=Math.max(me,Math.abs(nb-b[j])/(b[j]||1));b[j]=nb;}
+        if(me<1e-6&&i2>5)break;
+      }
+      for(let i=0;i<n;i++){let s=0;for(let j=0;j<n;j++)s+=b[j]*f[i*n+j];a[i]=s>0?B[i]/s:0;}
+      for(let i=0;i<n;i++)for(let j=0;j<n;j++)T[i*n+j]=a[i]*b[j]*f[i*n+j];
+    }else{
+      for(let i=0;i<n;i++){let s=0;for(let j=0;j<n;j++)s+=B[j]*f[i*n+j];if(s>0)for(let j=0;j<n;j++)T[i*n+j]=B[i]*B[j]*f[i*n+j]/s;}
+    }
+    // ---- パス2: 経路を確定して各列車へ積み上げ
+    for(const S of slots){S.on.fill(0);S.off.fill(0);S.seg.fill(0);S.useg.fill(0);S.fac=null;}
+    ob.fill(0);da.fill(0);xb.fill(0);xa.fill(0);Ts.fill(0);denied.fill(0);
+    if(hasRes){
+      // 座席指定の列車は定員を超えない：まず制約なしで需要を載せ、超過する列車区間を通る客を定員に収まるまで按分する
+      if(!await sweep('u',tag+'座席指定の需要確認'))return null;
+      for(const S of slots)if(S.sv.reserved){const ns1=S.seg.length;S.fac=F(ns1);for(let p=0;p<ns1;p++)S.fac[p]=S.useg[p]>S.cap?S.cap/S.useg[p]*(1-1e-9):1;}
+    }
+    const res=await sweep('c',tag+'乗客の割り当て');
+    if(!res)return null;
+    if(!hasRes)for(const S of slots)S.useg.set(S.seg);
+    // ---- 反復の平均化(MSA)
+    const a=ITER>1?Math.max(1/it,0.3):1;
+    for(const S of slots){
+      for(let k=0;k<S.on.length;k++){S.fon[k]+=(S.on[k]-S.fon[k])*a;S.foff[k]+=(S.off[k]-S.foff[k])*a;}
+      for(let k=0;k<S.seg.length;k++){S.fseg[k]+=(S.seg[k]-S.fseg[k])*a;S.fuseg[k]+=(S.useg[k]-S.fuseg[k])*a;}
+    }
+    for(let i=0;i<n;i++){fin.ob[i]+=(ob[i]-fin.ob[i])*a;fin.da[i]+=(da[i]-fin.da[i])*a;fin.xb[i]+=(xb[i]-fin.xb[i])*a;fin.xa[i]+=(xa[i]-fin.xa[i])*a;fin.denied[i]+=(denied[i]-fin.denied[i])*a;}
+    for(let i=0;i<n*n;i++)fin.T[i]+=(Ts[i]-fin.T[i])*a;
+    fin.totW+=(res.totW-fin.totW)*a;fin.sumX+=(res.sumX-fin.sumX)*a;fin.sumTime+=(res.sumTime-fin.sumTime)*a;
+    // ---- 混雑による体感時間ペナルティを更新（系統ごとの平均混雑率から）
+    if(ITER>1){
+      let md=0;
+      for(const rt of routes){
+        const nS=rt.sv.mins.length,cap=rt.sv.capacity;
+        for(let p=0;p<rt.ns-1;p++){
+          let s=0;for(let mi=0;mi<nS;mi++)s+=slots[rt.slotBase+mi].fuseg[p];
+          const rate=s/nS/cap;md=Math.max(md,Math.abs(rate-rt.rate[p]));rt.rate[p]=rate;
+          rt.cp[p+1]=rt.cp[p]+(rt.offs[p+1]-rt.offs[p])*(penaltyMult(rate,rt.sv.reserved)-1);
+        }
+      }
+      deltas.push(md*100);
+    }
+    await yieldUI();
+  }
+  // ---- 集計（列車＝毎時の各発車分の1本、人数は1本あたり。駅・全体は1日あたりに換算）
+  for(const S of slots){
+    S.on=S.fon;S.off=S.foff;S.seg=S.fseg;
+    let mx=0,tot=0;for(let p=0;p<S.seg.length;p++)if(S.seg[p]>mx)mx=S.seg[p];
+    for(let k=0;k<S.on.length;k++)tot+=S.on[k];
+    S.maxLoad=mx;S.totalOn=tot;S.maxRate=mx/S.cap*100;
+  }
+  const trainBoard=F(n),trainAlight=F(n),tripsAt=new Int32Array(n);
+  for(const S of slots)for(let k=0;k<S.st.length;k++){trainBoard[S.st[k]]+=S.on[k]*H;trainAlight[S.st[k]]+=S.off[k]*H;tripsAt[S.st[k]]++;}
+  const services=routes.map((rt,i)=>{
+    const sv=rt.sv,nS=sv.mins.length,ss=slots.slice(rt.slotBase,rt.slotBase+nS),ns=rt.ns;
+    const avgOn=F(ns),avgOff=F(ns),avgSeg=F(ns-1);
+    for(const S of ss){for(let k=0;k<ns;k++){avgOn[k]+=S.on[k]/nS;avgOff[k]+=S.off[k]/nS;}for(let p=0;p<ns-1;p++)avgSeg[p]+=S.seg[p]/nS;}
+    let mxSeg=0;for(let p=0;p<ns-1;p++)mxSeg=Math.max(mxSeg,avgSeg[p]);
+    let worst=ss[0];for(const S of ss)if(S.maxRate>worst.maxRate)worst=S;
+    return {i,sv,name:sv.name,nS,cap:sv.capacity,st:rt.stops,avgOn,avgOff,avgSeg,slots:ss,
+      avgOnTotal:avgOn.reduce((a,b)=>a+b,0),maxRate:mxSeg/sv.capacity*100,worstRate:worst.maxRate,worstMin:worst.dep0};
+  });
+  const noService=[];
+  users.forEach((u,name)=>{if(u.users>0&&!id.has(name))noService.push(name);});
+  const noData=names.filter(nm=>!(users.get(nm)&&users.get(nm).users>0));
+  const unassigned=origins.filter(o=>{let s=0;for(let d=0;d<n;d++)s+=fin.T[o*n+d]+fin.denied[o];return s<=0;}).map(o=>names[o]);
+  const scale=(a)=>{const b=F(a.length);for(let i=0;i<a.length;i++)b[i]=a[i]*H;return b;};
+  const denD=scale(fin.denied);
+  return {names,id,n,H,slots,services,T:scale(fin.T),originBoard:scale(fin.ob),destAlight:scale(fin.da),xferBoard:scale(fin.xb),xferAlight:scale(fin.xa),
+    denied:denD,totDenied:denD.reduce((a,b)=>a+b,0),trainBoard,trainAlight,tripsAt,
+    totW:fin.totW*H,avgX:fin.totW?fin.sumX/fin.totW:0,avgTime:fin.totW?fin.sumTime/fin.totW:0,noService,noData,unassigned,cfg,users,M,
+    iter:ITER,gamma,hasRes,deltas};
+}
+
+function buildSections(res){
+  const G=new Map();
+  for(const S of res.slots){
+    const sv=S.sv;
+    for(let p=0;p<S.seg.length;p++){
+      const a=sv.idxs[p],b=sv.idxs[p+1],lo=Math.min(a,b),hi=Math.max(a,b),sign=b>a?1:-1;
+      const key=sv.lineName+'|'+sign;
+      let g=G.get(key);
+      if(!g){const L=sv.lineSt;g={line:sv.lineName,sign,stations:sign>0?L:L.slice().reverse(),secs:[]};
+        for(let k=0;k<L.length-1;k++)g.secs.push({n:0,load:0,cap:0,max:0,maxTrip:null});G.set(key,g);}
+      for(let k=lo;k<hi;k++){
+        const idx=sign>0?k:(sv.lineSt.length-2-k);
+        const s=g.secs[idx];s.n++;s.load+=S.seg[p];s.cap+=S.cap;
+        const rate=S.seg[p]/S.cap*100;if(rate>=s.max){s.max=rate;s.maxTrip=S;}
+      }
+    }
+  }
+  return [...G.values()].sort((x,y)=>x.line<y.line?-1:x.line>y.line?1:y.sign-x.sign);
+}
+/*CORE_END*/
+
+/* ================= UI ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=x=>Math.round(x).toLocaleString('ja-JP');
+const fmt1=x=>(Math.round(x*10)/10).toLocaleString('ja-JP');
+function rateColor(r){return r<80?'#3fb984':r<100?'#8bc34a':r<150?'#f2c94c':r<180?'#f2994a':r<200?'#eb5757':'#b71c1c';}
+function rateLabel(r){return r<100?'座席〜余裕あり':r<150?'新聞が楽に読める':r<180?'肩が触れ合う':r<200?'体が触れ合う':'身動き困難';}
+const legendHtml='<div class="legend">'+[[0,'〜100% 余裕'],[100,'100〜150%'],[150,'150〜180% 肩が触れ合う'],[180,'180〜200% 圧迫'],[200,'200%〜']].map(([v,l])=>'<span><i style="background:'+rateColor(v+1)+'"></i>'+l+'</span>').join('')+'</div>';
+
+const SAMPLE_CSV=`駅コード,駅コード(個人),開業日,保有社,都道府県,駅名,読み,読み定数,等級,電報,利用者数
+,,,SR珱羽支社,連合都,珱羽,えいは,6.2,1,エイ,1999999
+,,,SR風神支社,風神府,風神,ふうじん,1.5,1,フウ,1611540
+,,,SR古莉亜支社,古莉亜府,古莉亜城,ふるりーあじょう,5.8,1,フリ,1125362
+,,,SR白木支社,白木府,白木,しろき,1.0,1,,1003621
+,,,SR白木支社,鶴羽県,鶴羽,つるは,3.0,1,,642952
+,,,SR白木支社,白木府,新白木,しんしろき,1.0,1,,631520
+,,,SR古莉亜支社,恋星県,恋星,れんしぇー,6.9,1,レシ,583509
+,,,SR風神支社,百堂県,百堂,ひゃくどう,1.0,1,ヒク,496048
+,,,SR白木支社,白木府,白橋,しらはし,1.7,2,,435575
+,,,SR白木支社,白木府,東白堂,とうはくどう,1.5,2,,354667
+,,,SR白木支社,佐原県,新佐原,しんさわら,1.5,2,,285368
+,,,SR白木支社,鶴羽県,陽爲,ひだめ,4.6,2,,123486
+,,,SR白木支社,長海県,長海,ながうみ,1.3,1,,406392
+,,,SR白木支社,長海県,春原,はるはら,1.0,2,,96371
+,,,SR古莉亜支社,恋星県,零撃星,れげきしぇー,7.2,1,レキ,258790
+,,,SR古莉亜支社,古莉亜府,華尼拉璃拉,ばにらりら,5.5,2,バラ,337820
+,,,SR古莉亜支社,古莉亜府,縷々莉亜,るるりーあ,5.7,1,ルリ,396801
+`;
+const SAMPLE_RT=`路線名,種別,保有社,車両定員,本数,停車駅
+白木本線,各停,SR,1200,6,珱羽、風神、百堂、白橋、白木、新白木、東白堂、新佐原
+白木本線,急行,SR,1500,4,珱羽、風神、白木、東白堂、新佐原
+鶴羽線,各停,SR,1000,5,白木、鶴羽、陽爲、長海、春原
+古莉亜線,各停,SR,1000,6,恋星、零撃星、華尼拉璃拉、縷々莉亜、古莉亜城、珱羽
+`;
+
+const SET_SPEC=[
+ ['需要の前提',[
+  ['usersMode','select','駅データ「利用者数」の意味',[['boardalight','1日の乗降人員（乗車＋降車）'],['board','1日の乗車人員（発生量）']]],
+  ['distribution','select','降車の配分',[['match','往復対称：各駅の降車＝乗車に合わせる（推奨）'],['gravity','重力モデル：降車は駅の規模に比例']]],
+  ['beta','number','距離抵抗 β（大きいほど近距離の利用が増える）',0.005],
+  ['dupMode','select','複数ファイルに同名の駅があるとき（SRと私鉄の乗換駅など）',[['sum','利用者数を合算する'],['first','最初のファイルの値を使う']]]]],
+ ['ダイヤの生成（毎時の本数→毎時固定ダイヤ）',[
+  ['bothDir','select','逆方向の列車',[['1','同じ本数で運転する'],['0','運転しない（停車駅の順のみ）']]],
+  ['capMult','number','輸送力倍率（MTRで走らせている編成の何倍の定員で計算するか。1.0=そのまま）',0.1],
+  ['opHours','number','1日の運行時間（時間）※1日の利用者数を「1時間あたり」に直すためだけに使います',1],
+  ['capMode','select','「車両定員」の意味',[['train','1編成あたりの定員'],['car','1両あたり（×両数）']]],
+  ['cars','number','既定の編成両数',1],['carCap','number','定員の記載がないときの1両定員（人）',10]]],
+ ['所要時間の推定（駅間の走行モデル）',[
+  ['defDist','number','駅間距離が不明なときの既定距離（km）',0.1],
+  ['curve','number','座標から距離を出すときの曲線補正（×）',0.05],
+  ['accel','number','加速度（km/h/s）　MTR初期値14.4',0.1],
+  ['decel','number','減速度（km/h/s）',0.1],
+  ['dwell','number','停車時間（秒）',0.5],
+  ['defSpeed','number','種別が表にないときの最高速度（km/h）',5],
+  ['runFactor','number','走行時間の補正係数（1.0=理論値、低速区間や閉塞待ちを見込むなら>1）',0.01],
+  ['speedTable','area','種別ごとの最高速度（km/h）　「種別 速度」を1行ずつ']]],
+ ['経路の選び方',[
+  ['xferPen','number','乗換1回の負担（分換算）',1],['minXfer','number','最小乗換時間（分）',0.5],
+  ['maxWait','number','最大待ち時間（分）',5],['maxXfer','number','最大乗換回数',1],['maxRide','number','最大乗車時間（分）',10],
+  ['step','number','来駅時刻のサンプル間隔（分・小さいほど精密で遅い）',1]]],
+ ['混雑を避ける行動',[
+  ['crowdGamma','number','混雑の嫌がり度（0=混雑を考慮しない／大きいほど空いた経路へ流れる）',0.5],
+  ['crowdIter','number','反復回数（混雑→経路変更→再計算の繰り返し）',1]]]
+];
+let cfg={...DEF};
+function buildSettings(){
+  $('#setGrid').innerHTML=SET_SPEC.map(([g,items])=>'<div class="setgroup">'+g+'</div><div class="setgrid">'+items.map(([k,t,l,o])=>{
+    if(t==='select')return '<label>'+l+'<select data-k="'+k+'">'+o.map(([v,x])=>'<option value="'+v+'">'+x+'</option>').join('')+'</select></label>';
+    if(t==='text')return '<label>'+l+'<input type="text" data-k="'+k+'"></label>';
+    if(t==='area')return '<label class="wide">'+l+'<textarea data-k="'+k+'" rows="5"></textarea></label>';
+    return '<label>'+l+'<input type="number" data-k="'+k+'" step="'+o+'" min="0"></label>';
+  }).join('')+'</div>').join('');
+  $('#setGrid').querySelectorAll('[data-k]').forEach(e=>{
+    e.value=cfg[e.dataset.k];
+    e.addEventListener('change',()=>{const k=e.dataset.k;cfg[k]=(e.tagName==='SELECT'||e.type==='text'||e.tagName==='TEXTAREA')?e.value:(parseFloat(e.value)||0);if(k==='dupMode')rebuildStations();else{checkTT();save();}});
+  });
+}
+
+/* --- 駅データ（複数ファイル対応） --- */
+let stFiles=[];const stPaste={name:'貼り付け',text:'',cn:null,cu:null,paste:true};
+let stationMap=new Map();
+function colLabel(h,i){return h&&h.trim()?h.trim():'(列'+(i+1)+')';}
+function srcRows(s){if(s._t!==s.text){s._rows=parseDelimited(s.text.replace(/^\uFEFF/,''),detectDelim(s.text));s._t=s.text;}return s._rows;}
+function stSources(){const a=stFiles.slice();stPaste.text=$('#csvText').value;if(stPaste.text.trim())a.push(stPaste);return a;}
+function rebuildStations(){
+  const srcs=stSources();
+  for(const s of srcs){const h=srcRows(s)[0]||[];
+    if(s.cn==null||s.cu==null||s.cn>=h.length||s.cu>=h.length){const d=detectCols(h);s.cn=d.cn;s.cu=d.cu;}}
+  const res=buildStationMap(srcs.map(s=>({name:s.name,rows:srcRows(s),cn:s.cn,cu:s.cu})),cfg.dupMode);
+  stationMap=res.map;
+  $('#stSrc').innerHTML=srcs.map((s,i)=>{
+    const h=srcRows(s)[0]||[];const opts=h.map((x,j)=>'<option value="'+j+'">'+esc(colLabel(x,j))+'</option>').join('');
+    return '<div class="srcrow"><b>'+esc(s.name)+'</b><span class="muted">'+res.per[i].n+'駅</span>'
+     +'<label class="muted">駅名の列 <select data-i="'+i+'" data-w="cn">'+opts+'</select></label>'
+     +'<label class="muted">利用者数の列 <select data-i="'+i+'" data-w="cu">'+opts+'</select></label>'
+     +(s.paste?'':'<button class="btn ghost" data-rm="'+i+'">削除</button>')+'</div>';}).join('');
+  $('#stSrc').querySelectorAll('select').forEach(sel=>{const s=srcs[+sel.dataset.i];sel.value=s[sel.dataset.w];
+    sel.onchange=()=>{s[sel.dataset.w]=+sel.value;rebuildStations();};});
+  $('#stSrc').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{stFiles.splice(+b.dataset.rm,1);rebuildStations();});
+  let html='';
+  if(stationMap.size){
+    const tot=[...stationMap.values()].reduce((a,b)=>a+b.users,0),blank=res.per.reduce((a,b)=>a+b.blank,0);
+    html+='<div class="msg ok">'+srcs.length+'件・'+stationMap.size+'駅を読み込みました（利用者数の合計 '+fmt(tot)+'）'+(blank?'／利用者数が空欄の駅 '+blank+'（0として扱います）':'')+'</div>';
+  }else if(srcs.length)html+='<div class="msg err">駅を読み込めませんでした。駅名・利用者数の列を選び直してください。</div>';
+  if(res.cross.size)html+='<div class="msg warn">複数ファイルに同名の駅があります（'+(cfg.dupMode==='sum'?'利用者数を合算':'最初のファイルの値を使用')+'）: '+esc([...res.cross.entries()].slice(0,6).map(([k,v])=>k+'['+v.join('＋')+']').join('、'))+(res.cross.size>6?' ほか'+res.cross.size+'駅':'')+'</div>';
+  if(res.inner.length)html+='<div class="msg warn">同じファイル内で駅名が重複しているため2件目以降を無視: '+esc([...new Set(res.inner)].slice(0,8).join('、'))+'</div>';
+  $('#stMsg').innerHTML=html;
+  checkTT();save();
+}
+async function decodeFile(file){
+  const buf=await file.arrayBuffer();
+  let t=new TextDecoder('utf-8').decode(buf);
+  if(t.includes('\uFFFD')){try{t=new TextDecoder('shift_jis').decode(buf);}catch(e){}}
+  return t.replace(/^\uFEFF/,'');
+}
+async function addFiles(list,files){
+  for(const f of files){const text=await decodeFile(f);const i=list.findIndex(x=>x.name===f.name);const o={name:f.name,text,cn:null,cu:null};if(i>=0)list[i]=o;else list.push(o);}
+}
+$('#csvFile').addEventListener('change',async e=>{await addFiles(stFiles,e.target.files);e.target.value='';rebuildStations();});
+$('#csvText').addEventListener('input',()=>{stPaste.cn=null;stPaste.cu=null;clearTimeout(window._ct);window._ct=setTimeout(rebuildStations,400);});
+$('#btnFetch').addEventListener('click',async()=>{
+  const u=$('#sheetUrl').value.trim();const m=u.match(/\/spreadsheets\/d\/([^/]+)/);
+  if(!m){$('#stMsg').innerHTML='<div class="msg err">スプレッドシートのURLを入力してください</div>';return;}
+  const gid=(u.match(/gid=(\d+)/)||[])[1]||'0';
+  const urls=['https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv&headers=1&gid='+gid,'https://docs.google.com/spreadsheets/d/'+m[1]+'/export?format=csv&gid='+gid];
+  for(const x of urls){try{const r=await fetch(x);if(!r.ok)continue;const name='シート'+m[1].slice(0,6)+'_'+gid;const i=stFiles.findIndex(s=>s.name===name),o={name,text:await r.text(),cn:null,cu:null};if(i>=0)stFiles[i]=o;else stFiles.push(o);rebuildStations();return;}catch(e){}}
+  $('#stMsg').innerHTML='<div class="msg err">取得できませんでした（「リンクを知っている全員が閲覧可」にする必要があります／ブラウザの制限で失敗する場合もあります）。CSVをダウンロードして追加してください。</div>';
+});
+
+/* --- 路線データ・距離・実測 --- */
+let rtFiles=[];
+function rtSources(){const a=rtFiles.slice();const t=$('#rtText').value;if(t.trim())a.push({name:'貼り付け',text:t});return a;}
+function renderRtSrc(){
+  $('#rtSrc').innerHTML=rtFiles.map((s,i)=>'<span class="chip">'+esc(s.name)+'<button data-rm="'+i+'" title="削除">×</button></span>').join('');
+  $('#rtSrc').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{rtFiles.splice(+b.dataset.rm,1);renderRtSrc();checkTT();save();});
+}
+let TT=null;
+function checkTT(){
+  const P=parseRoutesMulti(rtSources());
+  const DT=parseDist($('#distText').value,$('#distUnit').value);
+  const OBS=parseObs($('#obsText').value);
+  TT=buildTimetable(P,cfg,DT,OBS);
+  let html='';
+  const nTrips=TT.services.reduce((a,s)=>a+s.mins.length,0);
+  const nRes=TT.services.filter(s=>s.reserved).length;
+  if(!TT.errors.length&&TT.services.length)html+='<div class="msg ok">'+P.rows.length+'行 → 系統 '+TT.services.length+'（逆方向含む）／毎時 '+nTrips+'本（毎時固定ダイヤ）を生成しました'+(nRes?'（うち座席指定・立席なし '+nRes+'系統）':'')+'</div>';
+  if(TT.errors.length)html+='<div class="msg err">エラー<ul>'+TT.errors.slice(0,12).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
+  const w=[...TT.warnings];
+  if(stationMap.size){
+    const miss=new Set();for(const s of TT.services)for(const st of s.stops)if(!stationMap.has(st.n))miss.add(st.n);
+    if(miss.size)w.push('駅データにない駅（利用者数0として扱う）: '+[...miss].slice(0,10).join('、')+(miss.size>10?' ほか':''));
+  }
+  if(w.length)html+='<div class="msg warn">注意<ul>'+w.slice(0,10).map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
+  $('#rtMsg').innerHTML=html;
+  $('#distMsg').innerHTML=(DT.n?'<div class="msg ok">距離 '+DT.pair.size+'組・座標 '+DT.coords.size+'駅を読み込みました</div>':'')+DT.warn.map(x=>'<div class="msg warn">'+esc(x)+'</div>').join('');
+  let om='';
+  if(OBS.errors.length)om+='<div class="msg err">'+OBS.errors.map(esc).join('<br>')+'</div>';
+  if(TT.calib){
+    const c=TT.calib;
+    om+='<div class="msg ok">'+(c.param==='ds'?'距離不明区間の長さを既定値の '+c.value.toFixed(2)+' 倍に補正':'走行時間を '+c.value.toFixed(2)+' 倍に補正')+'（実測との平均誤差 '+c.rmse.toFixed(1)+'%）<ul>'+c.rep.slice(0,8).map(x=>'<li>'+esc(x.label)+'：実測 '+x.obs+'分 / 推定 '+x.pred.toFixed(1)+'分</li>').join('')+'</ul></div>';
+  }
+  $('#obsMsg').innerHTML=om;
+  const fw=TT.services.filter(s=>!s.rev);
+  if(fw.length){
+    const unk=TT.info.unkHops;
+    $('#rtPrev').innerHTML='<details style="margin-top:8px" open><summary>生成されたダイヤの確認（推定距離・所要時間）</summary>'
+      +(unk?'<div class="msg warn">距離が未登録の駅間 '+unk+'区間は、既定距離 '+(TT.info.defBase).toFixed(2)+'km を基準に推定しています（通過駅数は他種別の停車駅から推定）。</div>':'')
+      +'<div class="scroll" style="max-height:260px;margin-top:6px"><table><thead><tr><th class="l">系統</th><th>推定距離</th><th>所要</th><th>表定速度</th><th>毎時の発車分</th><th>本数</th><th>定員</th></tr></thead><tbody>'
+      +fw.map(s=>'<tr><td class="l">'+esc(s.name)+(s.co?' <span class="muted">'+esc(s.co)+'</span>':'')+'</td><td>'+fmt1(s.km)+'km</td><td>'+fmt1(s.minutes)+'分</td><td>'+fmt(s.km/(s.minutes/60))+'km/h</td><td>毎時 '+s.mins.map(m=>String(m).padStart(2,'0')).join('・')+'分</td><td>'+s.mins.length+'本/時</td><td>'+fmt(s.cap)+(s.reserved?' <span class="pill" style="background:#7a6ff0">座席指定</span>':'')+'</td></tr>').join('')
+      +'</tbody></table></div></details>';
+  }else $('#rtPrev').innerHTML='';
+}
+['rtText','distText','obsText'].forEach(id=>$('#'+id).addEventListener('input',()=>{clearTimeout(window['_t'+id]);window['_t'+id]=setTimeout(()=>{checkTT();save();},400);}));
+$('#distUnit').addEventListener('change',()=>{cfg.distUnit=$('#distUnit').value;checkTT();save();});
+$('#rtFile').addEventListener('change',async e=>{await addFiles(rtFiles,e.target.files);e.target.value='';renderRtSrc();checkTT();save();});
+$('#distFile').addEventListener('change',async e=>{const parts=[];for(const f of e.target.files)parts.push(await decodeFile(f));const cur=$('#distText').value.trim();$('#distText').value=(cur?cur+'\n':'')+parts.join('\n');e.target.value='';checkTT();save();});
+$('#btnSampleAll').addEventListener('click',()=>{stFiles=[];rtFiles=[];$('#csvText').value=SAMPLE_CSV;$('#rtText').value=SAMPLE_RT;$('#distText').value='';$('#obsText').value='';stPaste.cn=null;stPaste.cu=null;renderRtSrc();rebuildStations();});
+
+/* --- 保存 --- */
+function state(){return {stFiles:stFiles.map(s=>({name:s.name,text:s.text,cn:s.cn,cu:s.cu})),paste:{text:$('#csvText').value,cn:stPaste.cn,cu:stPaste.cu},
+  rtFiles:rtFiles.map(s=>({name:s.name,text:s.text})),rt:$('#rtText').value,dist:$('#distText').value,obs:$('#obsText').value,cfg};}
+function save(){try{localStorage.setItem('ridership_sim_v4',JSON.stringify(state()));}catch(e){}}
+function restore(o){
+  stFiles=(o.stFiles||[]).map(s=>({name:s.name,text:s.text,cn:s.cn,cu:s.cu}));
+  const pa=o.paste||{text:o.csv||''};
+  $('#csvText').value=pa.text||'';stPaste.cn=pa.cn==null?null:pa.cn;stPaste.cu=pa.cu==null?null:pa.cu;
+  rtFiles=(o.rtFiles||[]).map(s=>({name:s.name,text:s.text}));
+  $('#rtText').value=o.rt||'';$('#distText').value=o.dist||'';$('#obsText').value=o.obs||'';
+  cfg={...DEF,...(o.cfg||{})};buildSettings();$('#distUnit').value=cfg.distUnit||'m';
+  renderRtSrc();rebuildStations();
+}
+$('#btnSave').addEventListener('click',()=>dl('ridership_input.json',JSON.stringify(state(),null,1),'application/json'));
+$('#btnLoad').addEventListener('click',()=>$('#jsonFile').click());
+$('#jsonFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{restore(JSON.parse(await f.text()));}catch(err){$('#runMsg').innerHTML='<div class="msg err">読み込めませんでした: '+esc(err.message)+'</div>';}});
+function dl(name,text,type){
+  const b=new Blob([type?text:'﻿'+text],{type:type||'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+const csvLine=a=>a.map(v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',');
+
+/* --- 実行 --- */
+let RES=null,cancelFlag=false,SECS=null;
+$('#btnCancel').addEventListener('click',()=>{cancelFlag=true;});
+$('#btnRun').addEventListener('click',async()=>{
+  checkTT();$('#runMsg').innerHTML='';
+  if(TT.errors.length||!TT.services.length){$('#runMsg').innerHTML='<div class="msg err">路線データにエラーがあるか、運行する系統がありません。</div>';return;}
+  if(!stationMap.size){$('#runMsg').innerHTML='<div class="msg err">駅データがありません。</div>';return;}
+  cancelFlag=false;$('#btnRun').disabled=true;$('#btnCancel').disabled=false;
+  const t0=performance.now();
+  try{
+    const res=await simulate(TT,stationMap,{...cfg},(p,tx)=>{$('#prog').style.width=(p*100)+'%';$('#progTxt').textContent=tx;},()=>cancelFlag);
+    if(res){RES=res;SECS=buildSections(res);res.sec=((performance.now()-t0)/1000);showResults();
+      $('#progTxt').textContent='完了（'+res.sec.toFixed(1)+'秒）';}
+    else $('#progTxt').textContent='中止しました';
+  }catch(e){$('#runMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>';console.error(e);}
+  $('#btnRun').disabled=false;$('#btnCancel').disabled=true;
+});
+
+/* --- ページ切替 --- */
+function page(p){$('#pgIn').classList.toggle('hide',p!=='in');$('#pgRes').classList.toggle('hide',p!=='res');$('#navIn').classList.toggle('on',p==='in');$('#navRes').classList.toggle('on',p==='res');}
+$('#navIn').onclick=()=>page('in');$('#navRes').onclick=()=>page('res');
+let curTab='sum';
+$('#resTabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;curTab=b.dataset.t;tabs();});
+function tabs(){
+  document.querySelectorAll('#resTabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===curTab));
+  ['sum','st','tr','sec'].forEach(k=>$('#t'+k[0].toUpperCase()+k.slice(1)).classList.toggle('hide',k!==curTab));
+}
+function showResults(){
+  $('#noRes').classList.add('hide');$('#resBox').classList.remove('hide');
+  stSel=null;svSel=null;
+  renderSummary();renderStations();renderServices();renderSections();tabs();page('res');
+}
+
+/* --- サマリー --- */
+const pad2=m=>String(Math.round(m)).padStart(2,'0');
+const statBox=(v,l)=>'<div class="stat"><b>'+v+'</b><span>'+l+'</span></div>';
+const resBadge=sv=>sv.reserved?' <span class="pill" style="background:#7a6ff0">座席指定</span>':'';
+function svRow(x,attr){
+  return '<tr class="click" '+attr+'><td class="l">'+esc(x.name)+resBadge(x.sv)+'</td><td>'+x.nS+'</td><td>'+fmt(x.avgOnTotal)+'人</td><td><span class="pill" style="background:'+rateColor(x.maxRate)+'">'+fmt(x.maxRate)+'%</span></td><td class="muted">'+fmt(x.worstRate)+'%（毎時'+pad2(x.worstMin)+'分発）</td></tr>';
+}
+const svHead='<thead><tr><th class="l">系統</th><th>本/時</th><th>1本あたり乗車</th><th>最大区間の混雑率(平均)</th><th>最も混む1本(参考)</th></tr></thead>';
+function renderSummary(){
+  const R=RES,S=R.services,H=R.H;
+  const totOn=R.slots.reduce((a,T)=>a+T.totalOn,0)*H;
+  const cnt=th=>S.filter(x=>x.maxRate>=th).length;
+  const top=S.slice().sort((a,b)=>b.maxRate-a.maxRate).slice(0,10);
+  let html='<div class="cards">'
+   +statBox(fmt(R.totW),'推定 総利用者数（人/日・発生ベース）')
+   +statBox(fmt(totOn),'列車への延べ乗車人員（人/日・乗換含む）')
+   +statBox(R.slots.length,'毎時の列車数（往復合計・本/時）')
+   +statBox(fmt1(R.avgX),'平均乗換回数')
+   +statBox(fmt1(R.avgTime)+'分','平均所要（待ち・乗換込み）')
+   +statBox(cnt(150)+' / '+cnt(180)+' / '+cnt(200),'最大区間混雑率 150%↑ / 180%↑ / 200%↑ の系統数')
+   +(R.hasRes?statBox(fmt(R.totDenied),'座席指定の定員超過で乗れない人数（人/日）'):'')+'</div>';
+  html+='<div class="msg">時間帯による需要の違いは扱わず、1日の利用者数を運行時間（'+H+'時間）で割った「平均的な1時間」を毎時固定ダイヤで計算しています。列車の人数・混雑率は、同じ系統（路線×種別）の全列車の<b>1本あたり平均</b>です。</div>';
+  if(R.iter>1)html+='<div class="msg ok">混雑回避：混雑率に応じて体感時間を割り増しし、'+R.iter+'回の反復で経路を再選択しました'+(R.deltas.length?'（最終反復での系統別混雑率の変動 最大 '+fmt1(R.deltas[R.deltas.length-1])+'ポイント）':'')+'。</div>';
+  else html+='<div class="msg">混雑回避は無効です（設定「混雑の嫌がり度」を0より大きくすると有効になります）。</div>';
+  const warn=[];
+  if(R.hasRes&&R.totDenied>0.5)warn.push('座席指定（立席なし）の系統は混雑率が100%を超えないよう、定員を超える需要を '+fmt(R.totDenied)+' 人/日ぶん「乗れない人数」として除いています（駅別タブで駅ごとの内訳を確認できます）');
+  if(R.noService.length)warn.push('利用者数はあるが運行(停車)がない駅 '+R.noService.length+' 駅は計算に含まれていません（例: '+R.noService.slice(0,8).join('、')+'）');
+  if(R.noData.length)warn.push('ダイヤにあるが利用者数が0/未登録の駅: '+R.noData.slice(0,10).join('、')+'（降車・乗車が発生しません）');
+  if(R.unassigned.length)warn.push('他駅へ到達できず割り当てられなかった駅: '+R.unassigned.join('、')+'（最大待ち時間や乗換回数の設定、路線の接続を確認）');
+  if(warn.length)html+='<div class="msg warn"><ul>'+warn.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul></div>';
+  html+='<div class="card" style="margin-top:12px"><h2>混雑の大きい系統 TOP10</h2><div class="scroll"><table>'+svHead+'<tbody>'+top.map(x=>svRow(x,'data-sv="'+x.i+'"')).join('')+'</tbody></table></div></div>';
+  html+='<div class="row"><button class="btn ghost" id="exStations">駅別CSV</button><button class="btn ghost" id="exSv">系統別(1本平均)CSV</button><button class="btn ghost" id="exSecs">区間別CSV</button><button class="btn ghost" id="exOD">OD(駅→駅)CSV</button></div>';
+  $('#tSum').innerHTML=html;
+  $('#tSum').querySelectorAll('[data-sv]').forEach(r=>r.onclick=()=>{curTab='tr';tabs();svSel=+r.dataset.sv;drawSvList();});
+  $('#exStations').onclick=exStations;$('#exSv').onclick=exSv;$('#exSecs').onclick=exSecs;$('#exOD').onclick=exOD;
+}
+
+/* --- 駅別 --- */
+let stSort={k:'total',dir:-1},stSel=null;
+function stationRows(){
+  const R=RES;
+  return R.names.map((nm,i)=>{
+    const u=R.users.get(nm);const inp=u?u.users:0;
+    return {i,name:nm,input:inp,board:R.originBoard[i],alight:R.destAlight[i],total:R.originBoard[i]+R.destAlight[i],
+      ratio:inp>0?(R.originBoard[i]+R.destAlight[i])/(R.cfg.usersMode==='board'?inp*2:inp):NaN,
+      denied:R.denied[i],xfer:R.xferBoard[i],tb:R.trainBoard[i],ta:R.trainAlight[i],trips:R.tripsAt[i]};
+  });
+}
+function renderStations(){
+  const rows=stationRows();
+  if(stSort.k==='name')rows.sort((a,b)=>a.name.localeCompare(b.name,'ja')*stSort.dir);
+  else rows.sort((a,b)=>{const x=isNaN(a[stSort.k])?-1:a[stSort.k],y=isNaN(b[stSort.k])?-1:b[stSort.k];return (x-y)*stSort.dir;});
+  const cols=[['name','駅名'],['input','入力利用者数'],['board','乗車人員'],['alight','降車人員'],['total','乗降人員'],['ratio','入力比']];
+  if(RES.hasRes)cols.push(['denied','乗れない人数(座席指定)']);
+  cols.push(['xfer','乗換(乗継)人数'],['tb','列車乗車延べ'],['ta','列車降車延べ'],['trips','停車本数(本/時)']);
+  const bm=Math.max(1,...rows.map(r=>r.total));
+  let html='<div class="card"><div class="muted">人数はすべて1日あたり。乗車人員＝その駅から旅を始める人、降車人員＝その駅で旅を終える人。乗換客は別列に分けています（列車乗車延べ＝乗車人員＋乗換で乗る人）。行をクリックで詳細。</div>'
+   +'<div class="scroll" style="margin-top:8px"><table><thead><tr>'+cols.map(([k,l])=>'<th data-k="'+k+'"'+(k==='name'?' class="l"':'')+'>'+l+(stSort.k===k?(stSort.dir<0?' ▼':' ▲'):'')+'</th>').join('')+'</tr></thead><tbody>'
+   +rows.map(r=>'<tr class="click" data-st="'+r.i+'"><td>'+esc(r.name)+'</td><td>'+fmt(r.input)+'</td><td>'+fmt(r.board)+'</td><td>'+fmt(r.alight)+'</td><td><span class="hb" style="width:'+(r.total/bm*90)+'px;background:var(--accent);margin-right:6px"></span>'+fmt(r.total)+'</td><td>'+(isNaN(r.ratio)?'-':fmt(r.ratio*100)+'%')+'</td>'+(RES.hasRes?'<td>'+fmt(r.denied)+'</td>':'')+'<td>'+fmt(r.xfer)+'</td><td>'+fmt(r.tb)+'</td><td>'+fmt(r.ta)+'</td><td>'+r.trips+'</td></tr>').join('')
+   +'</tbody></table></div></div><div id="stDetail"></div>';
+  $('#tSt').innerHTML=html;
+  $('#tSt').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;stSort=stSort.k===k?{k,dir:-stSort.dir}:{k,dir:k==='name'?1:-1};renderStations();});
+  $('#tSt').querySelectorAll('[data-st]').forEach(r=>r.onclick=()=>showStation(+r.dataset.st));
+  if(stSel!=null)showStation(stSel);
+}
+function barList(items,total){
+  const mx=Math.max(1,...items.map(x=>x[1]));
+  return '<table><tbody>'+items.map(([l,v])=>'<tr><td class="l">'+esc(l)+'</td><td style="width:55%"><span class="hb" style="width:'+(v/mx*100)+'%;background:var(--accent2)"></span></td><td>'+fmt(v)+'人'+(total?' <span class="muted">('+fmt1(v/total*100)+'%)</span>':'')+'</td></tr>').join('')+'</tbody></table>';
+}
+function showStation(i){
+  stSel=i;const R=RES,nm=R.names[i],H=R.H;
+  const byDir=new Map(),byDest=new Map(),alDir=new Map();
+  for(const T of R.slots){
+    const sv=T.sv;
+    for(let k=0;k<T.st.length;k++){
+      if(T.st[k]!==i)continue;
+      const dest=R.names[T.st[T.st.length-1]],org=R.names[T.st[0]];
+      const fb=sv.lineName.startsWith('(');
+      if(T.on[k]>0){
+        const L=sv.lineSt,sign=k<T.st.length-1?(sv.idxs[k+1]>sv.idxs[k]?1:-1):1;
+        const term=fb?dest:(sign>0?L[L.length-1]:L[0]);
+        const lab=(fb?'':sv.lineName+' ')+term+'方面';
+        byDir.set(lab,(byDir.get(lab)||0)+T.on[k]*H);
+        byDest.set(sv.kind+' '+dest+'行',(byDest.get(sv.kind+' '+dest+'行')||0)+T.on[k]*H);
+      }
+      if(T.off[k]>0){
+        const sign=k>0?(sv.idxs[k]>sv.idxs[k-1]?1:-1):1;const L=sv.lineSt;
+        const from=fb?org:(sign>0?L[0]:L[L.length-1]);
+        const lab=(fb?'':sv.lineName+' ')+from+'方面から';
+        alDir.set(lab,(alDir.get(lab)||0)+T.off[k]*H);
+      }
+    }
+  }
+  const srt=m=>[...m.entries()].sort((a,b)=>b[1]-a[1]);
+  const totB=[...byDir.values()].reduce((a,b)=>a+b,0),totA=[...alDir.values()].reduce((a,b)=>a+b,0);
+  const n=R.n;const dests=[],orgs=[];
+  for(let j=0;j<n;j++){if(R.T[i*n+j]>0.5)dests.push([R.names[j],R.T[i*n+j]]);if(R.T[j*n+i]>0.5)orgs.push([R.names[j],R.T[j*n+i]]);}
+  dests.sort((a,b)=>b[1]-a[1]);orgs.sort((a,b)=>b[1]-a[1]);
+  const totD=dests.reduce((a,b)=>a+b[1],0),totO=orgs.reduce((a,b)=>a+b[1],0);
+  $('#stDetail').innerHTML='<div class="card"><h2>'+esc(nm)+' の詳細　<span class="muted">乗車 '+fmt(R.originBoard[i])+'人/日 ／ 降車 '+fmt(R.destAlight[i])+'人/日 ／ 乗換 '+fmt(R.xferBoard[i])+'人/日</span></h2>'
+   +'<div class="two"><div><h3>どの方向の列車に乗るか（列車乗車・乗換含む）</h3>'+barList(srt(byDir).slice(0,12),totB)+'<h3>行先別</h3>'+barList(srt(byDest).slice(0,12),totB)+'</div>'
+   +'<div><h3>どの方向から降りてくるか（列車降車）</h3>'+barList(srt(alDir).slice(0,12),totA)+'<h3>この駅から向かう先の駅 TOP12（最終目的地）</h3>'+barList(dests.slice(0,12),totD)+'<h3>この駅へ来る人の出発駅 TOP12</h3>'+barList(orgs.slice(0,12),totO)+'</div></div></div>';
+  $('#stDetail').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* --- 系統別（1本あたり平均） --- */
+let svSel=null;
+function renderServices(){
+  const R=RES;
+  let html='<div class="card"><div class="muted" style="margin-bottom:8px">同じ路線・種別・方向の全列車の<b>1本あたり平均</b>です（時刻別の列車は区別しません）。</div><div class="filters">'
+   +'<label class="muted">停車駅 <select id="fSt"><option value="">指定なし</option>'+R.names.map(s=>'<option>'+esc(s)+'</option>').join('')+'</select></label>'
+   +'<label class="muted">並び順 <select id="fSort"><option value="name">入力順</option><option value="rate">最大区間の混雑率が高い順</option><option value="on">1本あたり乗車が多い順</option></select></label></div>'
+   +legendHtml+'<div class="two"><div id="svList"></div><div id="svDetail"></div></div></div>';
+  $('#tTr').innerHTML=html;
+  ['fSt','fSort'].forEach(id=>$('#'+id).onchange=drawSvList);
+  drawSvList();
+}
+function drawSvList(){
+  const R=RES;const st=$('#fSt').value,so=$('#fSort').value;
+  const si=st?R.id.get(st):-1;
+  let L=R.services.filter(x=>si<0||x.st.includes(si));
+  if(so==='rate')L.sort((a,b)=>b.maxRate-a.maxRate);else if(so==='on')L.sort((a,b)=>b.avgOnTotal-a.avgOnTotal);
+  $('#svList').innerHTML='<div class="muted">'+L.length+'系統</div><div class="scroll"><table>'+svHead+'<tbody>'+L.map(x=>svRow(x,'data-i="'+x.i+'"'+(x.i===svSel?' style="background:#e8f4fb"':''))).join('')+'</tbody></table></div>';
+  $('#svList').querySelectorAll('[data-i]').forEach(r=>r.onclick=()=>{svSel=+r.dataset.i;drawSvList();});
+  if(svSel!=null)showService(svSel);else $('#svDetail').innerHTML='<div class="muted">左の系統を選ぶと、駅ごとの降車・乗車人員と車内人数（1本あたり平均）が表示されます。</div>';
+}
+function showService(i){
+  const R=RES,X=R.services[i];const sv=X.sv,n=X.st.length;
+  const mx=Math.max(X.cap,...X.avgSeg);
+  let rows='';
+  for(let k=0;k<n;k++){
+    const after=k<n-1?X.avgSeg[k]:0,rate=after/X.cap*100;
+    rows+='<tr><td>'+esc(R.names[X.st[k]])+'</td><td>'+fmt1(sv.stops[k].off)+'分</td><td>'+(X.avgOff[k]>0.5?'−'+fmt(X.avgOff[k]):'')+'</td><td>'+(X.avgOn[k]>0.5?'+'+fmt(X.avgOn[k]):'')+'</td><td><b>'+(k<n-1?fmt(after):'')+'</b></td><td class="l" style="min-width:150px">'+(k<n-1?'<span class="hb" style="width:'+Math.min(100,after/mx*100)+'%;background:'+rateColor(rate)+'"></span> '+fmt(rate)+'%':'')+'</td></tr>';
+  }
+  const slotRows=X.slots.map(S=>'<span class="pill" style="background:'+rateColor(S.maxRate)+';margin:2px">'+pad2(S.dep0)+'分発 '+fmt(S.maxRate)+'%</span>').join('');
+  $('#svDetail').innerHTML='<h3 style="margin-top:0">'+esc(X.name)+resBadge(sv)+'</h3><div class="muted">'+(sv.co?esc(sv.co)+' ／ ':'')+'毎時 '+X.nS+'本 ／ 定員 '+fmt(X.cap)+'人'+(cfg.capMult!==1?'（輸送力倍率 ×'+cfg.capMult+'）':'')+' ／ 最大区間の平均混雑率 <span class="pill" style="background:'+rateColor(X.maxRate)+'">'+fmt(X.maxRate)+'%（'+rateLabel(X.maxRate)+'）</span>'+(sv.reserved?' ／ 立席なし（100%を超えません）':'')+'</div>'
+   +'<div class="scroll" style="margin-top:6px"><table><thead><tr><th class="l">駅</th><th>起点から</th><th>降車</th><th>乗車</th><th>発車後の車内</th><th class="l">混雑率</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div class="muted" style="margin-top:8px">参考：毎時の各列車の最大混雑率（発車分は起点の発車）</div><div>'+slotRows+'</div>';
+}
+
+/* --- 区間別 --- */
+function renderSections(){
+  const H=RES.H;
+  let html=legendHtml+'<div class="muted" style="margin-bottom:8px">輸送人員は1日あたり。平均混雑率＝その区間を通る全列車の輸送人員÷定員合計、最大＝毎時の列車のうち最も混む1本。同じ路線名の系統は、急行が通過する駅の区間にも積算されます。</div><div class="two">';
+  for(const g of SECS){
+    const L=g.stations;const mx=Math.max(1,...g.secs.map(s=>s.n?s.load/s.n:0));
+    let rows='';
+    for(let k=0;k<L.length;k++){
+      rows+='<tr><td colspan="6" style="background:#f3f8fc"><b>'+esc(L[k])+'</b></td></tr>';
+      if(k<L.length-1){
+        const s=g.secs[k];const avg=s.cap?s.load/s.cap*100:0;
+        rows+='<tr class="secrow"><td class="l" style="color:var(--sub)">↓ '+esc(L[k])+'→'+esc(L[k+1])+'</td><td>'+s.n+'本/時</td><td>'+fmt(s.load*H)+'人</td><td><span class="hb" style="width:'+(s.n?s.load/s.n/mx*70:0)+'px;background:'+rateColor(avg)+'"></span> '+fmt(avg)+'%</td><td>'+(s.n?'<span class="pill" style="background:'+rateColor(s.max)+'">'+fmt(s.max)+'%</span>':'-')+'</td><td class="l muted">'+(s.maxTrip?'毎時'+pad2(s.maxTrip.dep0)+'分発':'')+'</td></tr>';
+      }
+    }
+    html+='<div class="card"><h2>'+esc(g.line.replace(/^\(|\)$/g,''))+'　'+esc(L[0])+'→'+esc(L[L.length-1])+'</h2><div class="scroll"><table><thead><tr><th class="l">駅／区間</th><th>本数</th><th>輸送人員(人/日)</th><th>平均混雑率</th><th>最大</th><th class="l">最混雑</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }
+  $('#tSec').innerHTML=html+'</div>';
+}
+
+/* --- CSV出力 --- */
+function exStations(){
+  const rows=stationRows();
+  dl('stations.csv',[csvLine(['駅名','入力利用者数','乗車人員(人/日)','降車人員(人/日)','乗降人員(人/日)','乗れない人数(人/日)','乗換人数(人/日)','列車乗車延べ(人/日)','列車降車延べ(人/日)','停車本数(本/時)']),...rows.map(r=>csvLine([r.name,Math.round(r.input),Math.round(r.board),Math.round(r.alight),Math.round(r.total),Math.round(r.denied),Math.round(r.xfer),Math.round(r.tb),Math.round(r.ta),r.trips]))].join('\n'));
+}
+function exSv(){
+  const R=RES,out=[csvLine(['系統','種別','保有社','座席指定','毎時の本数','駅','起点からの所要(分)','降車(1本平均)','乗車(1本平均)','発車後車内人数(1本平均)','混雑率%(平均)','定員'])];
+  for(const X of R.services){const n=X.st.length;for(let k=0;k<n;k++){const a=k<n-1?X.avgSeg[k]:0;out.push(csvLine([X.name,X.sv.kind,X.sv.co,X.sv.reserved?'はい':'いいえ',X.nS,R.names[X.st[k]],X.sv.stops[k].off.toFixed(1),Math.round(X.avgOff[k]),Math.round(X.avgOn[k]),Math.round(a),k<n-1?Math.round(a/X.cap*100):'',Math.round(X.cap)]));}}
+  dl('services.csv',out.join('\n'));
+}
+function exSecs(){
+  const H=RES.H,out=[csvLine(['路線','方向','区間始','区間終','本数(本/時)','輸送人員(人/日)','平均混雑率%','最大混雑率%'])];
+  for(const g of SECS){const L=g.stations;g.secs.forEach((s,k)=>out.push(csvLine([g.line,L[0]+'→'+L[L.length-1],L[k],L[k+1],s.n,Math.round(s.load*H),s.cap?Math.round(s.load/s.cap*100):0,Math.round(s.max)])));}
+  dl('sections.csv',out.join('\n'));
+}
+function exOD(){
+  const R=RES,out=[csvLine(['出発駅','到着駅','人数(人/日)'])];
+  for(let i=0;i<R.n;i++)for(let j=0;j<R.n;j++)if(R.T[i*R.n+j]>0.05)out.push(csvLine([R.names[i],R.names[j],R.T[i*R.n+j].toFixed(1)]));
+  dl('od.csv',out.join('\n'));
+}
+
+/* --- 初期化 --- */
+buildSettings();
+(function init(){
+  let o=null;try{o=JSON.parse(localStorage.getItem('ridership_sim_v4')||'null');}catch(e){}
+  if(o&&((o.stFiles&&o.stFiles.length)||(o.paste&&o.paste.text)||(o.rtFiles&&o.rtFiles.length)||o.rt))restore(o);
+  else{renderRtSrc();rebuildStations();}
+})();
+</script>
+</body>
+</html>
