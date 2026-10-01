@@ -182,7 +182,7 @@ h3{font-size:14px;margin:14px 0 6px}
 
 <script>
 /*CORE_START*/
-const DEF={usersMode:'boardalight',distribution:'match',beta:0.05,xferPen:8,minXfer:3,maxWait:45,maxRide:150,maxXfer:3,step:1,
+const DEF={usersMode:'boardalight',distribution:'match',beta:0.05,xferPen:3,waitInit:0.3,waitXfer:0.5,connect:'1',minXfer:3,maxWait:45,maxRide:150,maxXfer:3,step:1,
   bothDir:'1',dupMode:'sum',opHours:19,capMult:1,capMode:'train',cars:8,carCap:150,
   defDist:1.5,curve:1.15,accel:14.4,decel:14.4,dwell:10,defSpeed:100,runFactor:1,
   speedTable:'各停 80\n普通 80\n準急 90\n区間急行 95\n急行 100\n快速 100\n快速急行 105\n特急 110\n快速特急 115',
@@ -438,6 +438,51 @@ function buildTimetable(P,cfg,DT,OBS){
   M.info={defBase:defBase*ds,knownEdges:kn.length,unkHops:rows.reduce((a,r)=>a+r.unk,0),hops:rows.reduce((a,r)=>a+r.hopKm.length,0)};
 
   // ---- 運行時刻・サービス生成（毎時固定ダイヤ：毎時同じ分に発車）
+  const dirsAll=(cfg.bothDir==='1'||cfg.bothDir===1||cfg.bothDir===true)?[false,true]:[false];
+  const offsFor=(r,rev)=>{const hop=rev?r.hopKm.slice().reverse():r.hopKm;const o=[0];for(let k=0;k<hop.length;k++)o.push(o[k]+(k>0?dwellMin:0)+runMin(hop[k],r.vmax,cfg.accel,cfg.decel,tf*cfg.runFactor));return o;};
+  const defMins=(ri,r,n,rev)=>{
+    const h=60/n;
+    if(r.mins.length>1)return r.mins.map(m=>(m+(rev?Math.round(h/2):0))%60);
+    const base=r.mins.length===1?r.mins[0]:Math.round((((ri*0.6180339887)%1)*h));
+    const a=[];for(let k=0;k<n;k++)a.push((base+Math.round(k*h)+(rev?Math.round(h/2):0))%60);return a;
+  };
+  // 同じ線路の種別どうしで、乗換が成立しやすい発車分（待避・接続）をえらぶ
+  const phase=new Map();
+  if(cfg.connect==='1'||cfg.connect===1){
+    const placed=new Map(),minX=cfg.minXfer>0?cfg.minXfer:0;
+    const order=rows.map((r,i)=>i).filter(i=>rows[i].freq>0).sort((a,b)=>rows[b].stops.length-rows[a].stops.length||a-b);
+    const f=d=>d>=minX?Math.exp(-(d-minX)/6):0;
+    for(const ri of order){
+      const r=rows[ri],n=Math.min(60,Math.max(1,Math.round(r.freq))),h=60/n;
+      for(const rev of dirsAll){
+        const nm=rev?r.stops.slice().reverse():r.stops,o=offsFor(r,rev),key=r.gk+'|'+rev;
+        if(!placed.has(key))placed.set(key,[]);const list=placed.get(key);
+        const tail=nm.map((x,i)=>nm.slice(i+1).join('\u0001'));
+        const fixed=r.mins.length>0;
+        let mins=defMins(ri,r,n,rev);
+        if(!fixed&&list.length){
+          let bestS=-1,bestB=0;const dflt=mins[0];
+          for(let b=0;b<Math.max(1,Math.ceil(h));b++){
+            const ms=[];for(let k=0;k<n;k++)ms.push((b+Math.round(k*h))%60);
+            let sc=0;
+            for(const P of list){
+              for(let i=0;i<nm.length;i++){const j=P.pos.get(nm[i]);if(j===undefined||tail[i]===P.tail[j])continue;
+                for(const m1 of ms)for(const m2 of P.mins){
+                  const t1=m1+o[i],t2=m2+P.o[j];
+                  if(i<nm.length-1&&j>0)sc+=f((((t1-t2)%60)+60)%60);
+                  if(j<P.nm.length-1&&i>0)sc+=f((((t2-t1)%60)+60)%60);
+                }}
+            }
+            sc-=Math.abs(b-dflt)*1e-6;
+            if(sc>bestS){bestS=sc;bestB=b;}
+          }
+          mins=[];for(let k=0;k<n;k++)mins.push((bestB+Math.round(k*h))%60);
+        }
+        phase.set(ri+'|'+rev,mins);
+        list.push({nm,o,mins:[...new Set(mins)],pos:new Map(nm.map((x,i)=>[x,i])),tail});
+      }
+    }
+  }
   const names=new Set();
   const capMult=cfg.capMult>0?cfg.capMult:1;
   rows.forEach((r,ri)=>{
@@ -448,17 +493,12 @@ function buildTimetable(P,cfg,DT,OBS){
     const h=60/n;
     const cars=r.carsCol>0?r.carsCol:cfg.cars;
     const cap=(cfg.capMode==='car'?((r.cap>0?r.cap:cfg.carCap)*cars):(r.cap>0?r.cap:cars*cfg.carCap))*capMult;
-    const dirs=[false];if(cfg.bothDir==='1'||cfg.bothDir===1||cfg.bothDir===true)dirs.push(true);
+    const dirs=dirsAll;
     for(const rev of dirs){
       const nm=rev?r.stops.slice().reverse():r.stops.slice();
       const hop=rev?r.hopKm.slice().reverse():r.hopKm;
       const o=[0];for(let k=0;k<hop.length;k++)o.push(o[k]+(k>0?dwellMin:0)+runMin(hop[k],r.vmax,cfg.accel,cfg.decel,tf*cfg.runFactor));
-      let mins;
-      if(r.mins.length>1)mins=r.mins.map(m=>(m+(rev?Math.round(h/2):0))%60);
-      else{
-        const base=r.mins.length===1?r.mins[0]:Math.round((((ri*0.6180339887)%1)*h));
-        mins=[];for(let k=0;k<n;k++)mins.push((base+Math.round(k*h)+(rev?Math.round(h/2):0))%60);
-      }
+      let mins=phase.get(ri+'|'+rev)||defMins(ri,r,n,rev);
       mins=[...new Set(mins)].sort((x,y)=>x-y);
       let name=r.disp+' '+r.kind+(rev?'(逆)':'');if(names.has(name)){let c=2;while(names.has(name+'#'+c))c++;name+='#'+c;}names.add(name);
       let idxs=nm.map(s=>g.pos.get(s)),ok=idxs.every(x=>x!==undefined);
@@ -511,6 +551,7 @@ async function simulate(M,users,cfg,progress,cancelled){
   let marked=new Int32Array(n),nmarked=new Int32Array(n);
   const flag=new Uint8Array(n);
   // 体感時間(PR)を最小化する。実時刻(AR)は乗継可否の判定に使う
+  const wI=cfg.waitInit>=0?cfg.waitInit:1,wX=cfg.waitXfer>=0?cfg.waitXfer:1;
   function scan(o,t){
     AR[0].fill(Infinity);PR[0].fill(Infinity);AR[0][o]=t;PR[0][o]=t;
     const lim=t+cfg.maxWait+cfg.maxRide,wl=t+cfg.maxWait;
@@ -543,7 +584,7 @@ async function simulate(M,users,cfg,progress,cancelled){
             const need=a+(s===o?0:cfg.minXfer)-offs[p];
             let lo=0,hi=nt;while(lo<hi){const m=(lo+hi)>>1;if(deps[m]<need)lo=m+1;else hi=m;}
             if(lo<nt&&(r>1||deps[lo]+offs[p]<=wl)){
-              const Pn=pP[s]+(deps[lo]+offs[p]-a)+(r>1?cfg.xferPen:0);
+              const Pn=pP[s]+(deps[lo]+offs[p]-a)*(r>1?wX:wI)+(r>1?cfg.xferPen:0);
               const Pc=cj>=0?base+offs[p]+cp[p]:Infinity;
               if(Pn<Pc-1e-9){cj=lo;bpos=p;base=Pn-offs[p]-cp[p];}
             }
@@ -786,6 +827,7 @@ const SET_SPEC=[
   ['dupMode','select','複数ファイルに同名の駅があるとき（SRと私鉄の乗換駅など）',[['sum','利用者数を合算する'],['first','最初のファイルの値を使う']]]]],
  ['ダイヤの生成（毎時の本数→毎時固定ダイヤ）',[
   ['bothDir','select','逆方向の列車',[['1','同じ本数で運転する'],['0','運転しない（停車駅の順のみ）']]],
+  ['connect','select','発車分が未指定のとき、同じ路線の種別どうしの乗換（待避・接続）がつながるよう発車分を自動で調整',[['1','調整する'],['0','しない（系統ごとに等間隔・ばらばら）']]],
   ['capMult','number','輸送力倍率（MTRで走らせている編成の何倍の定員で計算するか。1.0=そのまま）',0.1],
   ['opHours','number','1日の運行時間（時間）※1日の利用者数を「1時間あたり」に直すためだけに使います',1],
   ['capMode','select','「車両定員」の意味',[['train','1編成あたりの定員'],['car','1両あたり（×両数）']]],
@@ -800,6 +842,7 @@ const SET_SPEC=[
   ['runFactor','number','走行時間の補正係数（1.0=理論値、低速区間や閉塞待ちを見込むなら>1）',0.01],
   ['speedTable','area','種別ごとの最高速度（km/h）　「種別 速度」を1行ずつ']]],
  ['経路の選び方',[
+  ['waitInit','number','最初の駅での待ち時間の重み（1=待ち時間をそのまま負担に。小さいほどダイヤを調べて速い列車を狙う人が多い）',0.05],['waitXfer','number','乗換での待ち時間の重み',0.05],
   ['xferPen','number','乗換1回の負担（分換算）',1],['minXfer','number','最小乗換時間（分）',0.5],
   ['maxWait','number','最大待ち時間（分）',5],['maxXfer','number','最大乗換回数',1],['maxRide','number','最大乗車時間（分）',10],
   ['step','number','来駅時刻のサンプル間隔（分・小さいほど精密で遅い）',1]]],
